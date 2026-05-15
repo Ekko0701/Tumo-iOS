@@ -46,6 +46,10 @@ public extension Project {
                     module: module,
                     dependencies: dependencies
                 )
+            ],
+            schemes: [
+                .tumoFeature(module: module),
+                .tumoFeatureDemo(module: module)
             ]
         )
     }
