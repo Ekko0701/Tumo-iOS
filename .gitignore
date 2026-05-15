@@ -1,0 +1,24 @@
+# macOS
+.DS_Store
+
+# Xcode user state
+*.xcuserstate
+xcuserdata/
+
+# Xcode derived data and build products
+DerivedData/
+build/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Tuist generated projects
+*.xcodeproj/
+*.xcworkspace/
+Derived/
+
+# Tuist cache and dependencies
+Tuist/.build/
+Tuist/Dependencies/
+Tuist/Cache/
