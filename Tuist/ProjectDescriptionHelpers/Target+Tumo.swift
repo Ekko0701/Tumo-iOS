@@ -33,7 +33,8 @@ public extension Target {
     }
 
     static func tumoFeatureTests(
-        module: TumoModule
+        module: TumoModule,
+        dependencies: [TargetDependency] = []
     ) -> Target {
         .target(
             name: module.testsName,
@@ -44,7 +45,7 @@ public extension Target {
             sources: ["Tests/Sources/**"],
             dependencies: [
                 .target(name: module.name)
-            ]
+            ] + dependencies
         )
     }
 

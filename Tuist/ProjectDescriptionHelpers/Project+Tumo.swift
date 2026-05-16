@@ -33,18 +33,27 @@ public extension Project {
         module: TumoModule,
         dependencies: [TargetDependency] = []
     ) -> Project {
-        Project(
+        let featureDependencies = dependencies + [
+            .external(.composableArchitecture)
+        ]
+
+        return Project(
             name: module.name,
             settings: .tumoDefault,
             targets: [
                 .tumoFramework(
                     module: module,
-                    dependencies: dependencies
+                    dependencies: featureDependencies
                 ),
-                .tumoFeatureTests(module: module),
+                .tumoFeatureTests(
+                    module: module,
+                    dependencies: [
+                        .external(.composableArchitecture)
+                    ]
+                ),
                 .tumoFeatureDemo(
                     module: module,
-                    dependencies: dependencies
+                    dependencies: featureDependencies
                 )
             ],
             schemes: [

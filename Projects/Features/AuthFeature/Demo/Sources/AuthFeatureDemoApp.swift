@@ -1,11 +1,16 @@
 import AuthFeature
+import ComposableArchitecture
 import SwiftUI
 
 @main
 struct AuthFeatureDemoApp: App {
     var body: some Scene {
         WindowGroup {
-            Text("AuthFeature Demo")
+            AuthView(
+                store: Store(initialState: AuthFeature.State()) {
+                    AuthFeature()
+                }
+            )
         }
     }
 }
