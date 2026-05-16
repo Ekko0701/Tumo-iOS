@@ -9,23 +9,30 @@ public struct AuthView: View {
     }
 
     public var body: some View {
-        VStack(spacing: 16) {
-            Text(store.title)
-                .font(.largeTitle.bold())
-
-            Text(store.subtitle)
-                .font(.headline)
-                .foregroundStyle(.secondary)
-
-            Button("로그인") {
-                store.send(.loginButtonTapped)
+        NavigationStack {
+            LoginView(
+                store: store.scope(
+                    state: \.login,
+                    action: \.login
+                )
+            )
+            .navigationDestination(
+                isPresented: Binding(
+                    get: { store.isSignupScreenPresented },
+                    set: { isPresented in
+                        if !isPresented {
+                            store.send(.signupBackButtonTapped)
+                        }
+                    }
+                )
+            ) {
+                SignupView(
+                    store: store.scope(
+                        state: \.signup,
+                        action: \.signup
+                    )
+                )
             }
-            .buttonStyle(.borderedProminent)
-
-            Text("로그인 버튼 탭 수: \(store.loginTapCount)")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
         }
-        .padding()
     }
 }
