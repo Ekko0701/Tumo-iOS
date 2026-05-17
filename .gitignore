@@ -22,3 +22,6 @@ Derived/
 Tuist/.build/
 Tuist/Dependencies/
 Tuist/Cache/
+
+# Local learning notes
+.notes/
