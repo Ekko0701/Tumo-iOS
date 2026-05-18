@@ -30,9 +30,7 @@ public struct Provider<Target: TargetType>: Sendable {
             throw NetworkError.invalidResponse
         }
 
-        guard (200..<300).contains(httpResponse.statusCode) else {
-            throw NetworkError.unacceptableStatusCode(httpResponse.statusCode)
-        }
+        try validateStatusCode(httpResponse.statusCode, data: data)
 
         return data
     }
@@ -75,6 +73,19 @@ public struct Provider<Target: TargetType>: Sendable {
             }
 
             return encodedRequest
+        }
+    }
+
+    private func validateStatusCode(
+        _ statusCode: Int,
+        data: Data
+    ) throws {
+        guard (200..<300).contains(statusCode) else {
+            if let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
+                throw NetworkError.server(errorResponse, statusCode: statusCode)
+            }
+
+            throw NetworkError.unacceptableStatusCode(statusCode)
         }
     }
 }

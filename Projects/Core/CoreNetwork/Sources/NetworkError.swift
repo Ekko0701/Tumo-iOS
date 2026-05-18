@@ -8,4 +8,7 @@ public enum NetworkError: Error, Equatable, Sendable {
 
     /// 서버가 2xx 범위를 벗어난 HTTP status code를 반환한 경우.
     case unacceptableStatusCode(Int)
+
+    /// 서버가 공통 에러 응답을 반환한 경우.
+    case server(ErrorResponse, statusCode: Int)
 }
