@@ -3,7 +3,7 @@ import Foundation
 /// 파라미터를 `URLRequest`에 반영하는 방식.
 ///
 /// GET 계열 요청은 보통 `.url`, POST/PUT/PATCH 계열 요청은 상황에 따라 `.json` 사용.
-public enum ParameterEncoding: Sendable {
+public enum ParameterEncoding: Equatable, Sendable {
     /// 파라미터를 URL query string으로 인코딩.
     ///
     /// 예: `/stocks?market=KOSPI&keyword=삼성`
