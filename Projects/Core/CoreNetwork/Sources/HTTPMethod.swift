@@ -1,7 +1,7 @@
 /// HTTP 요청 메서드.
 ///
 /// `URLRequest.httpMethod`에 넣을 수 있도록 원시값을 표준 HTTP 메서드 문자열로 정의.
-public enum Method: String, Sendable {
+public enum HTTPMethod: String, Sendable {
     /// 서버에서 리소스를 조회할 때 사용.
     case get = "GET"
 

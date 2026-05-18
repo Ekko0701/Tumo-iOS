@@ -22,7 +22,7 @@ enum AuthAPI: TargetType {
         }
     }
 
-    var method: CoreNetwork.Method {
+    var method: HTTPMethod {
         switch self {
         case .login, .signup:
             .post

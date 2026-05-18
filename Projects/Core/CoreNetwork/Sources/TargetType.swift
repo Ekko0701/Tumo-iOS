@@ -16,7 +16,7 @@ public protocol TargetType: Sendable {
     var path: String { get }
 
     /// HTTP 요청 메서드.
-    var method: Method { get }
+    var method: HTTPMethod { get }
 
     /// 요청 body 또는 query parameter 구성 방식.
     var task: Task { get }
