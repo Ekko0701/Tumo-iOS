@@ -1,4 +1,4 @@
-public struct SignupResponse: Codable, Equatable, Sendable {
+public struct SignupResponseDTO: Codable, Equatable, Sendable {
     public let id: Int
     public let email: String
     public let nickname: String

@@ -47,6 +47,22 @@ public struct SignupView: View {
             }
             .buttonStyle(.borderedProminent)
             .disabled(!store.isSubmitButtonEnabled)
+
+            if store.isLoading {
+                ProgressView()
+            }
+
+            if let successMessage = store.successMessage {
+                Text(successMessage)
+                    .font(.footnote)
+                    .foregroundStyle(.green)
+            }
+
+            if let errorMessage = store.errorMessage {
+                Text(errorMessage)
+                    .font(.footnote)
+                    .foregroundStyle(.red)
+            }
         }
         .navigationTitle(store.title)
         .padding(24)

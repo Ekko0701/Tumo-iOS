@@ -5,8 +5,8 @@ import Foundation
 ///
 /// 각 case는 하나의 백엔드 API를 의미하며, Provider가 이 값을 읽어 `URLRequest`를 생성한다.
 enum AuthAPI: TargetType {
-    case login(LoginRequest)
-    case signup(SignupRequest)
+    case login(LoginRequestDTO)
+    case signup(SignupRequestDTO)
 
     var baseURL: URL {
         URL(string: "http://localhost:8080")!
@@ -31,11 +31,11 @@ enum AuthAPI: TargetType {
 
     var task: Task {
         switch self {
-        case .login(let request):
-            .requestJSONEncodable(AnyEncodable(request))
+        case .login(let requestDTO):
+            .requestJSONEncodable(AnyEncodable(requestDTO))
 
-        case .signup(let request):
-            .requestJSONEncodable(AnyEncodable(request))
+        case .signup(let requestDTO):
+            .requestJSONEncodable(AnyEncodable(requestDTO))
         }
     }
 }
