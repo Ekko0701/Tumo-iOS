@@ -129,6 +129,36 @@ final class AuthFeatureTests: XCTestCase {
         }
     }
 
+    func testSignupSucceededDismissesSignupScreenAndPrefillsLoginEmail() async {
+        var initialState = AuthFeature.State()
+        initialState.isSignupScreenPresented = true
+        initialState.signup.email = "user@tumo.com"
+        initialState.signup.password = "password123"
+        initialState.signup.nickname = "tumo"
+
+        let store = TestStore(initialState: initialState) {
+            AuthFeature()
+        }
+
+        await store.send(
+            .signup(
+                .signupSucceeded(
+                    AuthUser(
+                        id: 1,
+                        email: "user@tumo.com",
+                        nickname: "tumo",
+                        cashBalance: 10_000_000
+                    )
+                )
+            )
+        ) {
+            $0.isSignupScreenPresented = false
+            $0.signup = SignupFeature.State()
+            $0.login.email = "user@tumo.com"
+            $0.login.successMessage = "회원가입이 완료되었습니다. 로그인해주세요."
+        }
+    }
+
     func testSignupFormChanged() async {
         let store = TestStore(initialState: SignupFeature.State()) {
             SignupFeature()

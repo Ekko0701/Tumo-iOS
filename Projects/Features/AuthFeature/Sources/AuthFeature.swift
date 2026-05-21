@@ -40,6 +40,17 @@ public struct AuthFeature {
                 state.signup = SignupFeature.State()
                 return .none
 
+            case let .signup(.signupSucceeded(authUser)):
+                state.isSignupScreenPresented = false
+                state.signup = SignupFeature.State()
+                state.login.email = authUser.email
+                state.login.password = ""
+                state.login.errorMessage = nil
+                state.login.emailErrorMessage = nil
+                state.login.passwordErrorMessage = nil
+                state.login.successMessage = "회원가입이 완료되었습니다. 로그인해주세요."
+                return .none
+
             case .login, .signup:
                 return .none
             }
