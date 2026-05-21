@@ -3,7 +3,7 @@ import ProjectDescriptionHelpers
 
 let project = Project.tumoApp(
     dependencies: [
-        .module(.coreNetwork),
+        .external(.composableArchitecture),
         .module(.coreStorage),
         .module(.coreModels),
         .module(.coreDesignSystem),

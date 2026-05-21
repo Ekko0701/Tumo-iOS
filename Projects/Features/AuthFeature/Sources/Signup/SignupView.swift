@@ -22,6 +22,13 @@ public struct SignupView: View {
                 .keyboardType(.emailAddress)
                 .textFieldStyle(.roundedBorder)
 
+                if let emailErrorMessage = store.emailErrorMessage {
+                    Text(emailErrorMessage)
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
                 SecureField(
                     "비밀번호",
                     text: Binding(
@@ -30,6 +37,13 @@ public struct SignupView: View {
                     )
                 )
                 .textFieldStyle(.roundedBorder)
+
+                if let passwordErrorMessage = store.passwordErrorMessage {
+                    Text(passwordErrorMessage)
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
 
                 TextField(
                     "닉네임",
@@ -40,6 +54,13 @@ public struct SignupView: View {
                 )
                 .textInputAutocapitalization(.never)
                 .textFieldStyle(.roundedBorder)
+
+                if let nicknameErrorMessage = store.nicknameErrorMessage {
+                    Text(nicknameErrorMessage)
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
 
             Button(store.submitButtonTitle) {

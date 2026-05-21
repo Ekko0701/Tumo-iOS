@@ -13,6 +13,9 @@ public struct SignupFeature {
         public var nickname = ""
         public var isLoading = false
         public var errorMessage: String?
+        public var emailErrorMessage: String?
+        public var passwordErrorMessage: String?
+        public var nicknameErrorMessage: String?
         public var successMessage: String?
 
         public init() {}
@@ -36,7 +39,7 @@ public struct SignupFeature {
         case nicknameChanged(String)
         case submitButtonTapped
         case signupSucceeded(AuthUser)
-        case signupFailed(String)
+        case signupFailed(AuthFormError)
     }
 
     public var body: some ReducerOf<Self> {
@@ -45,18 +48,21 @@ public struct SignupFeature {
             case let .emailChanged(email):
                 state.email = email
                 state.errorMessage = nil
+                state.emailErrorMessage = nil
                 state.successMessage = nil
                 return .none
 
             case let .passwordChanged(password):
                 state.password = password
                 state.errorMessage = nil
+                state.passwordErrorMessage = nil
                 state.successMessage = nil
                 return .none
 
             case let .nicknameChanged(nickname):
                 state.nickname = nickname
                 state.errorMessage = nil
+                state.nicknameErrorMessage = nil
                 state.successMessage = nil
                 return .none
 
@@ -67,6 +73,9 @@ public struct SignupFeature {
 
                 state.isLoading = true
                 state.errorMessage = nil
+                state.emailErrorMessage = nil
+                state.passwordErrorMessage = nil
+                state.nicknameErrorMessage = nil
                 state.successMessage = nil
 
                 let email = state.email
@@ -79,7 +88,7 @@ public struct SignupFeature {
                         let authUser = try await authClient.signup(email, password, nickname)
                         await send(.signupSucceeded(authUser))
                     } catch {
-                        await send(.signupFailed(AuthErrorMessageMapper.message(from: error)))
+                        await send(.signupFailed(AuthErrorMessageMapper.formError(from: error)))
                     }
                 }
 
@@ -88,9 +97,12 @@ public struct SignupFeature {
                 state.successMessage = "회원가입에 성공했습니다."
                 return .none
 
-            case let .signupFailed(message):
+            case let .signupFailed(formError):
                 state.isLoading = false
-                state.errorMessage = message
+                state.errorMessage = formError.message
+                state.emailErrorMessage = formError.emailMessage
+                state.passwordErrorMessage = formError.passwordMessage
+                state.nicknameErrorMessage = formError.nicknameMessage
                 return .none
             }
         }

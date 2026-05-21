@@ -1,5 +1,6 @@
 import ComposableArchitecture
 import CoreStorage
+import TumoNetwork
 import XCTest
 @testable import AuthFeature
 
@@ -68,6 +69,36 @@ final class AuthFeatureTests: XCTestCase {
                 tokenType: "Bearer"
             )
         )
+    }
+
+    func testAuthServerFieldErrorsAreMappedToFormErrors() {
+        let errorResponse = ErrorResponse(
+            code: "INVALID_INPUT_VALUE",
+            message: "요청 값이 올바르지 않습니다.",
+            fieldErrors: [
+                ErrorResponse.FieldError(
+                    field: "email",
+                    message: "이메일 형식이 올바르지 않습니다."
+                ),
+                ErrorResponse.FieldError(
+                    field: "password",
+                    message: "비밀번호는 8자 이상 64자 이하여야 합니다."
+                ),
+                ErrorResponse.FieldError(
+                    field: "nickname",
+                    message: "닉네임은 50자 이하여야 합니다."
+                )
+            ]
+        )
+
+        let formError = AuthErrorMessageMapper.formError(
+            from: NetworkError.server(errorResponse, statusCode: 400)
+        )
+
+        XCTAssertNil(formError.message)
+        XCTAssertEqual(formError.emailMessage, "이메일 형식이 올바르지 않습니다.")
+        XCTAssertEqual(formError.passwordMessage, "비밀번호는 8자 이상 64자 이하여야 합니다.")
+        XCTAssertEqual(formError.nicknameMessage, "닉네임은 50자 이하여야 합니다.")
     }
 
     func testSignupButtonTappedPresentsSignupScreen() async {

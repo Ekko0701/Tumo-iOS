@@ -2,6 +2,55 @@ import TumoNetwork
 
 /// 인증 API 호출 중 발생한 에러를 화면에 보여줄 메시지로 변환한다.
 enum AuthErrorMessageMapper {
+    static func formError(from error: Error) -> AuthFormError {
+        guard let networkError = error as? NetworkError else {
+            return AuthFormError(message: "요청 처리 중 오류가 발생했습니다.")
+        }
+
+        switch networkError {
+        case .server(let errorResponse, _):
+            guard !errorResponse.fieldErrors.isEmpty else {
+                return AuthFormError(message: errorResponse.message)
+            }
+
+            var emailMessage: String?
+            var passwordMessage: String?
+            var nicknameMessage: String?
+
+            for fieldError in errorResponse.fieldErrors {
+                switch fieldError.field {
+                case "email":
+                    emailMessage = fieldError.message
+
+                case "password":
+                    passwordMessage = fieldError.message
+
+                case "nickname":
+                    nicknameMessage = fieldError.message
+
+                default:
+                    continue
+                }
+            }
+
+            return AuthFormError(
+                message: nil,
+                emailMessage: emailMessage,
+                passwordMessage: passwordMessage,
+                nicknameMessage: nicknameMessage
+            )
+
+        case .invalidURL:
+            return AuthFormError(message: "요청 URL이 올바르지 않습니다.")
+
+        case .invalidResponse:
+            return AuthFormError(message: "서버 응답을 확인할 수 없습니다.")
+
+        case .unacceptableStatusCode:
+            return AuthFormError(message: "서버 요청에 실패했습니다.")
+        }
+    }
+
     static func message(from error: Error) -> String {
         guard let networkError = error as? NetworkError else {
             return "요청 처리 중 오류가 발생했습니다."

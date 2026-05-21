@@ -14,6 +14,8 @@ public struct LoginFeature {
         public var password = ""
         public var isLoading = false
         public var errorMessage: String?
+        public var emailErrorMessage: String?
+        public var passwordErrorMessage: String?
         public var successMessage: String?
 
         public init() {}
@@ -44,7 +46,7 @@ public struct LoginFeature {
         case passwordChanged(String)
         case submitButtonTapped
         case loginSucceeded
-        case loginFailed(String)
+        case loginFailed(AuthFormError)
         case signupButtonTapped
     }
 
@@ -54,12 +56,14 @@ public struct LoginFeature {
             case let .emailChanged(email):
                 state.email = email
                 state.errorMessage = nil
+                state.emailErrorMessage = nil
                 state.successMessage = nil
                 return .none
 
             case let .passwordChanged(password):
                 state.password = password
                 state.errorMessage = nil
+                state.passwordErrorMessage = nil
                 state.successMessage = nil
                 return .none
 
@@ -70,6 +74,8 @@ public struct LoginFeature {
 
                 state.isLoading = true
                 state.errorMessage = nil
+                state.emailErrorMessage = nil
+                state.passwordErrorMessage = nil
                 state.successMessage = nil
 
                 let email = state.email
@@ -89,7 +95,7 @@ public struct LoginFeature {
                         try tokenStorageClient.save(storedAuthToken)
                         await send(.loginSucceeded)
                     } catch {
-                        await send(.loginFailed(AuthErrorMessageMapper.message(from: error)))
+                        await send(.loginFailed(AuthErrorMessageMapper.formError(from: error)))
                     }
                 }
 
@@ -98,9 +104,11 @@ public struct LoginFeature {
                 state.successMessage = "로그인에 성공했습니다."
                 return .none
 
-            case let .loginFailed(message):
+            case let .loginFailed(formError):
                 state.isLoading = false
-                state.errorMessage = message
+                state.errorMessage = formError.message
+                state.emailErrorMessage = formError.emailMessage
+                state.passwordErrorMessage = formError.passwordMessage
                 return .none
 
             case .signupButtonTapped:

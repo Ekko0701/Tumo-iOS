@@ -29,6 +29,13 @@ public struct LoginView: View {
                 .keyboardType(.emailAddress)
                 .textFieldStyle(.roundedBorder)
 
+                if let emailErrorMessage = store.emailErrorMessage {
+                    Text(emailErrorMessage)
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
                 SecureField(
                     "비밀번호",
                     text: Binding(
@@ -37,6 +44,13 @@ public struct LoginView: View {
                     )
                 )
                 .textFieldStyle(.roundedBorder)
+
+                if let passwordErrorMessage = store.passwordErrorMessage {
+                    Text(passwordErrorMessage)
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
 
             Button(store.submitButtonTitle) {
