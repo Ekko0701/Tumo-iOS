@@ -8,12 +8,14 @@ import TumoNetwork
 struct AuthClient: Sendable {
     var login: @Sendable (_ email: String, _ password: String) async throws -> AuthToken
     var signup: @Sendable (_ email: String, _ password: String, _ nickname: String) async throws -> AuthUser
+    var refreshToken: @Sendable (_ refreshToken: String) async throws -> AuthToken
 }
 
 extension AuthClient {
     static func live(
         loginUsecase: any LoginUsecase,
-        signupUsecase: any SignupUsecase
+        signupUsecase: any SignupUsecase,
+        tokenRefreshUsecase: any TokenRefreshUsecase
     ) -> AuthClient {
         AuthClient(
             login: { email, password in
@@ -28,6 +30,9 @@ extension AuthClient {
                     password: password,
                     nickname: nickname
                 )
+            },
+            refreshToken: { refreshToken in
+                try await tokenRefreshUsecase.execute(refreshToken: refreshToken)
             }
         )
     }
@@ -39,16 +44,20 @@ private enum AuthClientKey: DependencyKey {
 
         let loginDataSource = LoginDataSourceImpl(provider: provider)
         let signupDataSource = SignupDataSourceImpl(provider: provider)
+        let tokenRefreshDataSource = TokenRefreshDataSourceImpl(provider: provider)
 
         let loginRepository = LoginRepositoryImpl(loginDataSource: loginDataSource)
         let signupRepository = SignupRepositoryImpl(signupDataSource: signupDataSource)
+        let tokenRefreshRepository = TokenRefreshRepositoryImpl(tokenRefreshDataSource: tokenRefreshDataSource)
 
         let loginUsecase = LoginUsecaseImpl(loginRepository: loginRepository)
         let signupUsecase = SignupUsecaseImpl(signupRepository: signupRepository)
+        let tokenRefreshUsecase = TokenRefreshUsecaseImpl(tokenRefreshRepository: tokenRefreshRepository)
 
         return AuthClient.live(
             loginUsecase: loginUsecase,
-            signupUsecase: signupUsecase
+            signupUsecase: signupUsecase,
+            tokenRefreshUsecase: tokenRefreshUsecase
         )
     }()
 }

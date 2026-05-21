@@ -7,6 +7,7 @@ import Foundation
 enum AuthAPI: TargetType {
     case login(LoginRequestDTO)
     case signup(SignupRequestDTO)
+    case refreshToken(TokenRefreshRequestDTO)
 
     var baseURL: URL {
         URL(string: "http://localhost:8080")!
@@ -19,12 +20,15 @@ enum AuthAPI: TargetType {
 
         case .signup:
             "/api/v1/auth/signup"
+
+        case .refreshToken:
+            "/api/v1/auth/token/refresh"
         }
     }
 
     var method: HTTPMethod {
         switch self {
-        case .login, .signup:
+        case .login, .signup, .refreshToken:
             .post
         }
     }
@@ -35,6 +39,9 @@ enum AuthAPI: TargetType {
             .requestJSONEncodable(AnyEncodable(requestDTO))
 
         case .signup(let requestDTO):
+            .requestJSONEncodable(AnyEncodable(requestDTO))
+
+        case .refreshToken(let requestDTO):
             .requestJSONEncodable(AnyEncodable(requestDTO))
         }
     }
