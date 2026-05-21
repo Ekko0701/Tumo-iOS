@@ -1,5 +1,5 @@
 import ComposableArchitecture
-import CoreNetwork
+import TumoNetwork
 
 /// TCA Reducer에서 사용할 인증 API 의존성.
 ///
@@ -35,7 +35,7 @@ extension AuthClient {
 
 private enum AuthClientKey: DependencyKey {
     static let liveValue: AuthClient = {
-        let provider = Provider<AuthAPI>()
+        let provider: Provider<AuthAPI> = TumoProviderFactory.live.publicProvider()
 
         let loginDataSource = LoginDataSourceImpl(provider: provider)
         let signupDataSource = SignupDataSourceImpl(provider: provider)

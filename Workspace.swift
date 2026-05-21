@@ -6,6 +6,7 @@ let workspace = Workspace(
         "Projects/App",
         "Projects/Core/CoreNetwork",
         "Projects/Core/CoreStorage",
+        "Projects/Core/TumoNetwork",
         "Projects/Core/CoreModels",
         "Projects/Core/CoreDesignSystem",
         "Projects/Features/AuthFeature",

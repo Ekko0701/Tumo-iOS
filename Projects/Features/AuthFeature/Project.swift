@@ -4,7 +4,7 @@ import ProjectDescriptionHelpers
 let project = Project.tumoFeature(
     module: .authFeature,
     dependencies: [
-        .module(.coreNetwork),
+        .module(.tumoNetwork),
         .module(.coreStorage),
         .module(.coreModels),
         .module(.coreDesignSystem)

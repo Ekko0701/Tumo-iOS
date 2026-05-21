@@ -1,4 +1,4 @@
-import CoreNetwork
+import TumoNetwork
 
 /// 인증 API 호출 중 발생한 에러를 화면에 보여줄 메시지로 변환한다.
 enum AuthErrorMessageMapper {

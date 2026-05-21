@@ -1,4 +1,4 @@
-import CoreNetwork
+import TumoNetwork
 
 /// 실제 백엔드 로그인 API를 호출하는 DataSource 구현체.
 struct LoginDataSourceImpl: LoginDataSource {

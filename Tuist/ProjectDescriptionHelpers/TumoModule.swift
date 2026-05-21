@@ -3,6 +3,7 @@ public enum TumoModule: String, CaseIterable {
 
     case coreNetwork = "CoreNetwork"
     case coreStorage = "CoreStorage"
+    case tumoNetwork = "TumoNetwork"
     case coreModels = "CoreModels"
     case coreDesignSystem = "CoreDesignSystem"
 
@@ -31,6 +32,8 @@ public enum TumoModule: String, CaseIterable {
             "Projects/Core/CoreNetwork"
         case .coreStorage:
             "Projects/Core/CoreStorage"
+        case .tumoNetwork:
+            "Projects/Core/TumoNetwork"
         case .coreModels:
             "Projects/Core/CoreModels"
         case .coreDesignSystem:
@@ -50,7 +53,7 @@ public enum TumoModule: String, CaseIterable {
         switch self {
         case .authFeature, .stockFeature, .orderFeature, .portfolioFeature:
             true
-        case .app, .coreNetwork, .coreStorage, .coreModels, .coreDesignSystem:
+        case .app, .coreNetwork, .coreStorage, .tumoNetwork, .coreModels, .coreDesignSystem:
             false
         }
     }

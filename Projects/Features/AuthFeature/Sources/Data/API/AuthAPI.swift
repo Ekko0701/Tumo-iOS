@@ -1,4 +1,4 @@
-import CoreNetwork
+import TumoNetwork
 import Foundation
 
 /// AuthFeature에서 호출하는 인증 API endpoint.
