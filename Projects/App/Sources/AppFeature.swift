@@ -1,10 +1,9 @@
 import AuthFeature
 import ComposableArchitecture
-import CoreStorage
 
 @Reducer
 struct AppFeature {
-    @Dependency(\.tokenStorageClient) private var tokenStorageClient
+    @Dependency(\.authClient) private var authClient
 
     @ObservableState
     struct State: Equatable {
@@ -20,8 +19,8 @@ struct AppFeature {
 
     enum Action: Equatable {
         case appStarted
-        case authTokenLoaded(Bool)
-        case authTokenLoadFailed
+        case sessionRefreshSucceeded
+        case sessionRefreshFailed
         case auth(AuthFeature.Action)
     }
 
@@ -35,23 +34,22 @@ struct AppFeature {
             case .appStarted:
                 state.route = .loading
 
-                let tokenStorageClient = tokenStorageClient
+                let authClient = authClient
 
                 return .run { send in
                     do {
-                        let storedAuthToken = try tokenStorageClient.load()
-
-                        await send(.authTokenLoaded(storedAuthToken != nil))
+                        _ = try await authClient.refreshSession()
+                        await send(.sessionRefreshSucceeded)
                     } catch {
-                        await send(.authTokenLoadFailed)
+                        await send(.sessionRefreshFailed)
                     }
                 }
 
-            case let .authTokenLoaded(hasToken):
-                state.route = hasToken ? .main : .auth
+            case .sessionRefreshSucceeded:
+                state.route = .main
                 return .none
 
-            case .authTokenLoadFailed:
+            case .sessionRefreshFailed:
                 state.route = .auth
                 return .none
 

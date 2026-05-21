@@ -1,5 +1,4 @@
 import ComposableArchitecture
-import CoreStorage
 import TumoNetwork
 import XCTest
 @testable import AuthFeature
@@ -26,9 +25,7 @@ final class AuthFeatureTests: XCTestCase {
         }
     }
 
-    func testLoginSuccessSavesAuthToken() async {
-        let savedToken = LockIsolated<StoredAuthToken?>(nil)
-
+    func testLoginSuccess() async {
         let store = TestStore(initialState: LoginFeature.State()) {
             LoginFeature()
         } withDependencies: {
@@ -41,9 +38,6 @@ final class AuthFeatureTests: XCTestCase {
                     refreshToken: "refresh-token",
                     tokenType: "Bearer"
                 )
-            }
-            $0.tokenStorageClient.save = { token in
-                savedToken.setValue(token)
             }
         }
 
@@ -60,15 +54,140 @@ final class AuthFeatureTests: XCTestCase {
             $0.isLoading = false
             $0.successMessage = "로그인에 성공했습니다."
         }
+    }
+
+    func testLoginUsecaseSavesAuthTokenAfterLogin() async throws {
+        let loginRequest = LockIsolated<LoginRequestDTO?>(nil)
+        let savedAuthToken = LockIsolated<AuthToken?>(nil)
+        let authToken = AuthToken(
+            accessToken: "access-token",
+            refreshToken: "refresh-token",
+            tokenType: "Bearer"
+        )
+
+        let usecase = LoginUsecaseImpl(
+            loginRepository: StubLoginRepository(
+                loginHandler: { requestDTO in
+                    loginRequest.setValue(requestDTO)
+
+                    return authToken
+                }
+            ),
+            authTokenRepository: StubAuthTokenRepository(
+                saveHandler: { authToken in
+                    savedAuthToken.setValue(authToken)
+                }
+            )
+        )
+
+        let result = try await usecase.execute(
+            email: "user@tumo.com",
+            password: "password123"
+        )
 
         XCTAssertEqual(
-            savedToken.value,
-            StoredAuthToken(
+            loginRequest.value,
+            LoginRequestDTO(
+                email: "user@tumo.com",
+                password: "password123"
+            )
+        )
+        XCTAssertEqual(
+            savedAuthToken.value,
+            AuthToken(
                 accessToken: "access-token",
                 refreshToken: "refresh-token",
                 tokenType: "Bearer"
             )
         )
+        XCTAssertEqual(result, authToken)
+    }
+
+    func testTokenRefreshUsecaseSavesAuthTokenAfterRefresh() async throws {
+        let tokenRefreshRequest = LockIsolated<TokenRefreshRequestDTO?>(nil)
+        let savedAuthToken = LockIsolated<AuthToken?>(nil)
+        let authToken = AuthToken(
+            accessToken: "new-access-token",
+            refreshToken: "new-refresh-token",
+            tokenType: "Bearer"
+        )
+
+        let usecase = TokenRefreshUsecaseImpl(
+            tokenRefreshRepository: StubTokenRefreshRepository(
+                refreshTokenHandler: { requestDTO in
+                    tokenRefreshRequest.setValue(requestDTO)
+
+                    return authToken
+                }
+            ),
+            authTokenRepository: StubAuthTokenRepository(
+                saveHandler: { authToken in
+                    savedAuthToken.setValue(authToken)
+                }
+            )
+        )
+
+        let result = try await usecase.execute(refreshToken: "old-refresh-token")
+
+        XCTAssertEqual(
+            tokenRefreshRequest.value,
+            TokenRefreshRequestDTO(refreshToken: "old-refresh-token")
+        )
+        XCTAssertEqual(
+            savedAuthToken.value,
+            AuthToken(
+                accessToken: "new-access-token",
+                refreshToken: "new-refresh-token",
+                tokenType: "Bearer"
+            )
+        )
+        XCTAssertEqual(result, authToken)
+    }
+
+    func testRefreshSessionUsecaseRefreshesStoredAuthToken() async throws {
+        let tokenRefreshRequest = LockIsolated<TokenRefreshRequestDTO?>(nil)
+        let savedAuthToken = LockIsolated<AuthToken?>(nil)
+        let oldAuthToken = AuthToken(
+            accessToken: "old-access-token",
+            refreshToken: "old-refresh-token",
+            tokenType: "Bearer"
+        )
+        let newAuthToken = AuthToken(
+            accessToken: "new-access-token",
+            refreshToken: "new-refresh-token",
+            tokenType: "Bearer"
+        )
+        let authTokenRepository = StubAuthTokenRepository(
+            saveHandler: { authToken in
+                savedAuthToken.setValue(authToken)
+            },
+            loadHandler: {
+                oldAuthToken
+            }
+        )
+        let tokenRefreshUsecase = TokenRefreshUsecaseImpl(
+            tokenRefreshRepository: StubTokenRefreshRepository(
+                refreshTokenHandler: { requestDTO in
+                    tokenRefreshRequest.setValue(requestDTO)
+
+                    return newAuthToken
+                }
+            ),
+            authTokenRepository: authTokenRepository
+        )
+        let refreshSessionUsecase = RefreshSessionUsecaseImpl(
+            tokenRefreshUsecase: tokenRefreshUsecase,
+            authTokenRepository: authTokenRepository
+        )
+
+        let result = try await refreshSessionUsecase.execute()
+
+        XCTAssertEqual(
+            tokenRefreshRequest.value,
+            TokenRefreshRequestDTO(refreshToken: "old-refresh-token")
+        )
+        XCTAssertEqual(savedAuthToken.value, newAuthToken)
+        XCTAssertEqual(result, newAuthToken)
     }
 
     func testAuthServerFieldErrorsAreMappedToFormErrors() {
@@ -198,5 +317,39 @@ final class AuthFeatureTests: XCTestCase {
         state.nickname = "tumo"
 
         XCTAssertTrue(state.isSubmitButtonEnabled)
+    }
+}
+
+private struct StubLoginRepository: LoginRepository {
+    var loginHandler: @Sendable (_ requestDTO: LoginRequestDTO) async throws -> AuthToken
+
+    func login(requestDTO: LoginRequestDTO) async throws -> AuthToken {
+        try await loginHandler(requestDTO)
+    }
+}
+
+private struct StubAuthTokenRepository: AuthTokenRepository {
+    var saveHandler: @Sendable (_ authToken: AuthToken) throws -> Void = { _ in }
+    var loadHandler: @Sendable () throws -> AuthToken? = { nil }
+    var deleteHandler: @Sendable () throws -> Void = {}
+
+    func save(_ authToken: AuthToken) throws {
+        try saveHandler(authToken)
+    }
+
+    func load() throws -> AuthToken? {
+        try loadHandler()
+    }
+
+    func delete() throws {
+        try deleteHandler()
+    }
+}
+
+private struct StubTokenRefreshRepository: TokenRefreshRepository {
+    var refreshTokenHandler: @Sendable (_ requestDTO: TokenRefreshRequestDTO) async throws -> AuthToken
+
+    func refreshToken(requestDTO: TokenRefreshRequestDTO) async throws -> AuthToken {
+        try await refreshTokenHandler(requestDTO)
     }
 }

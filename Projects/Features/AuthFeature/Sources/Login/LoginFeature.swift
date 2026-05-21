@@ -1,10 +1,8 @@
 import ComposableArchitecture
-import CoreStorage
 
 @Reducer
 public struct LoginFeature {
     @Dependency(\.authClient) private var authClient
-    @Dependency(\.tokenStorageClient) private var tokenStorageClient
 
     public init() {}
 
@@ -81,18 +79,10 @@ public struct LoginFeature {
                 let email = state.email
                 let password = state.password
                 let authClient = authClient
-                let tokenStorageClient = tokenStorageClient
 
                 return .run { send in
                     do {
-                        let authToken = try await authClient.login(email, password)
-                        let storedAuthToken = StoredAuthToken(
-                            accessToken: authToken.accessToken,
-                            refreshToken: authToken.refreshToken,
-                            tokenType: authToken.tokenType
-                        )
-
-                        try tokenStorageClient.save(storedAuthToken)
+                        _ = try await authClient.login(email, password)
                         await send(.loginSucceeded)
                     } catch {
                         await send(.loginFailed(AuthErrorMessageMapper.formError(from: error)))
