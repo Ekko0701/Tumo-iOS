@@ -47,9 +47,7 @@ public extension Project {
                 ),
                 .tumoFeatureTests(
                     module: module,
-                    dependencies: [
-                        .external(.composableArchitecture)
-                    ]
+                    dependencies: featureDependencies
                 ),
                 .tumoFeatureDemo(
                     module: module,

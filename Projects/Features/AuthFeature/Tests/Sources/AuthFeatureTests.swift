@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import CoreStorage
 import XCTest
 @testable import AuthFeature
 
@@ -22,6 +23,51 @@ final class AuthFeatureTests: XCTestCase {
         await store.send(.passwordChanged("password123")) {
             $0.password = "password123"
         }
+    }
+
+    func testLoginSuccessSavesAuthToken() async {
+        let savedToken = LockIsolated<StoredAuthToken?>(nil)
+
+        let store = TestStore(initialState: LoginFeature.State()) {
+            LoginFeature()
+        } withDependencies: {
+            $0.authClient.login = { email, password in
+                XCTAssertEqual(email, "user@tumo.com")
+                XCTAssertEqual(password, "password123")
+
+                return AuthToken(
+                    accessToken: "access-token",
+                    refreshToken: "refresh-token",
+                    tokenType: "Bearer"
+                )
+            }
+            $0.tokenStorageClient.save = { token in
+                savedToken.setValue(token)
+            }
+        }
+
+        await store.send(.emailChanged("user@tumo.com")) {
+            $0.email = "user@tumo.com"
+        }
+        await store.send(.passwordChanged("password123")) {
+            $0.password = "password123"
+        }
+        await store.send(.submitButtonTapped) {
+            $0.isLoading = true
+        }
+        await store.receive(.loginSucceeded) {
+            $0.isLoading = false
+            $0.successMessage = "로그인에 성공했습니다."
+        }
+
+        XCTAssertEqual(
+            savedToken.value,
+            StoredAuthToken(
+                accessToken: "access-token",
+                refreshToken: "refresh-token",
+                tokenType: "Bearer"
+            )
+        )
     }
 
     func testSignupButtonTappedPresentsSignupScreen() async {
