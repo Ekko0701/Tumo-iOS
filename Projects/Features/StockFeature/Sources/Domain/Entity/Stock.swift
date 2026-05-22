@@ -1,11 +1,25 @@
-struct Stock: Equatable, Sendable, Identifiable {
-    var id: String {
+public struct Stock: Equatable, Sendable, Identifiable {
+    public var id: String {
         stockCode
     }
 
-    let stockCode: String
-    let stockName: String
-    let market: String
-    let currentPrice: Int
-    let priceChangedAt: String
+    public let stockCode: String
+    public let stockName: String
+    public let market: String
+    public let currentPrice: Int
+    public let priceChangedAt: String
+
+    public init(
+        stockCode: String,
+        stockName: String,
+        market: String,
+        currentPrice: Int,
+        priceChangedAt: String
+    ) {
+        self.stockCode = stockCode
+        self.stockName = stockName
+        self.market = market
+        self.currentPrice = currentPrice
+        self.priceChangedAt = priceChangedAt
+    }
 }

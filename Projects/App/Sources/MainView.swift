@@ -1,3 +1,4 @@
+import StockFeature
 import SwiftUI
 
 struct MainView: View {
@@ -65,6 +66,16 @@ private struct MainTabContentView: View {
     let tab: MainTab
 
     var body: some View {
+        switch tab {
+        case .stocks:
+            StockView()
+
+        case .home, .orders, .portfolio, .my:
+            placeholder
+        }
+    }
+
+    private var placeholder: some View {
         ZStack {
             Color.tumoCanvas
                 .ignoresSafeArea()

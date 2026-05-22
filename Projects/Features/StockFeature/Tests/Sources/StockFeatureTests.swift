@@ -1,6 +1,8 @@
 import XCTest
+import ComposableArchitecture
 @testable import StockFeature
 
+@MainActor
 final class StockFeatureTests: XCTestCase {
     func testNamespace() {
         XCTAssertNotNil(StockFeatureNamespace.self)
@@ -116,6 +118,53 @@ final class StockFeatureTests: XCTestCase {
 
         XCTAssertEqual(stock.stockCode, "035720")
         XCTAssertEqual(stock.stockName, "카카오")
+    }
+
+    func testStockFeatureLoadsStocksOnAppear() async {
+        let stocks = [
+            Stock(
+                stockCode: "005930",
+                stockName: "삼성전자",
+                market: "KOSPI",
+                currentPrice: 75_000,
+                priceChangedAt: "2026-05-13T15:30:00"
+            )
+        ]
+        let store = TestStore(initialState: StockFeature.State()) {
+            StockFeature()
+        } withDependencies: {
+            $0.stockClient.fetchStocks = {
+                stocks
+            }
+        }
+
+        await store.send(.onAppear) {
+            $0.isLoading = true
+        }
+        await store.receive(.stocksLoaded(stocks)) {
+            $0.isLoading = false
+            $0.stocks = stocks
+        }
+    }
+
+    func testStockFeatureShowsErrorMessageWhenLoadingFails() async {
+        struct TestError: Error {}
+
+        let store = TestStore(initialState: StockFeature.State()) {
+            StockFeature()
+        } withDependencies: {
+            $0.stockClient.fetchStocks = {
+                throw TestError()
+            }
+        }
+
+        await store.send(.onAppear) {
+            $0.isLoading = true
+        }
+        await store.receive(.stocksFailed("종목 정보를 불러오지 못했습니다.")) {
+            $0.isLoading = false
+            $0.errorMessage = "종목 정보를 불러오지 못했습니다."
+        }
     }
 }
 
