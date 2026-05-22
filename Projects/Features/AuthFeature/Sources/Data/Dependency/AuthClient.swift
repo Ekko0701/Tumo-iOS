@@ -1,6 +1,4 @@
 import ComposableArchitecture
-import CoreStorage
-import TumoNetwork
 
 /// TCA Reducer에서 사용할 인증 API 의존성.
 ///
@@ -50,40 +48,7 @@ extension AuthClient {
 }
 
 private enum AuthClientKey: DependencyKey {
-    static let liveValue: AuthClient = {
-        let provider: Provider<AuthAPI> = TumoProviderFactory.live.publicProvider()
-
-        let loginDataSource = LoginDataSourceImpl(provider: provider)
-        let signupDataSource = SignupDataSourceImpl(provider: provider)
-        let tokenRefreshDataSource = TokenRefreshDataSourceImpl(provider: provider)
-
-        let loginRepository = LoginRepositoryImpl(loginDataSource: loginDataSource)
-        let signupRepository = SignupRepositoryImpl(signupDataSource: signupDataSource)
-        let tokenRefreshRepository = TokenRefreshRepositoryImpl(tokenRefreshDataSource: tokenRefreshDataSource)
-        let authTokenRepository = AuthTokenRepositoryImpl(
-            tokenStorageClient: .live(keychainClient: .live())
-        )
-
-        let loginUsecase = LoginUsecaseImpl(
-            loginRepository: loginRepository,
-            authTokenRepository: authTokenRepository
-        )
-        let signupUsecase = SignupUsecaseImpl(signupRepository: signupRepository)
-        let tokenRefreshUsecase = TokenRefreshUsecaseImpl(
-            tokenRefreshRepository: tokenRefreshRepository,
-            authTokenRepository: authTokenRepository
-        )
-        let refreshSessionUsecase = RefreshSessionUsecaseImpl(
-            tokenRefreshUsecase: tokenRefreshUsecase,
-            authTokenRepository: authTokenRepository
-        )
-
-        return AuthClient.live(
-            loginUsecase: loginUsecase,
-            signupUsecase: signupUsecase,
-            refreshSessionUsecase: refreshSessionUsecase
-        )
-    }()
+    static let liveValue = AuthAssembly.live()
 }
 
 public extension DependencyValues {
