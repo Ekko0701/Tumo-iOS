@@ -9,7 +9,7 @@ struct RootView: View {
         Group {
             switch store.route {
             case .loading:
-                ProgressView()
+                SplashView()
 
             case .auth:
                 AuthView(
