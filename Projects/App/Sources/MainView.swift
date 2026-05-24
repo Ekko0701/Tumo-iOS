@@ -1,3 +1,4 @@
+import OrderFeature
 import StockFeature
 import SwiftUI
 
@@ -70,7 +71,10 @@ private struct MainTabContentView: View {
         case .stocks:
             StockView()
 
-        case .home, .orders, .portfolio, .my:
+        case .orders:
+            OrderView()
+
+        case .home, .portfolio, .my:
             placeholder
         }
     }
