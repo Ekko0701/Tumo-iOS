@@ -5,7 +5,9 @@ import SwiftUI
 struct OrderFeatureDemoApp: App {
     var body: some Scene {
         WindowGroup {
-            Text("OrderFeature Demo")
+            NavigationStack {
+                OrderView()
+            }
         }
     }
 }
