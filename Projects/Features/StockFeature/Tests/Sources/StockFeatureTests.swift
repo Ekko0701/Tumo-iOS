@@ -147,6 +147,51 @@ final class StockFeatureTests: XCTestCase {
         }
     }
 
+    func testStockFeatureSortOptionChangedSortsDisplayedStocks() async {
+        // 한글 자모 순서가 명확한 이름(가 < 마 < 바)으로 로캘 의존성을 제거한다.
+        let ga = Stock(
+            stockCode: "000001",
+            stockName: "가온전자",
+            market: "KOSPI",
+            currentPrice: 50_000,
+            priceChangedAt: "2026-05-13T15:30:00"
+        )
+        let ma = Stock(
+            stockCode: "000002",
+            stockName: "마루소프트",
+            market: "KOSDAQ",
+            currentPrice: 150_000,
+            priceChangedAt: "2026-05-13T15:30:00"
+        )
+        let ba = Stock(
+            stockCode: "000003",
+            stockName: "바다물산",
+            market: "KOSPI",
+            currentPrice: 100_000,
+            priceChangedAt: "2026-05-13T15:30:00"
+        )
+        let store = TestStore(
+            initialState: StockFeature.State(stocks: [ga, ma, ba])
+        ) {
+            StockFeature()
+        }
+
+        // 기본(.popular)은 원본 순서를 유지한다.
+        XCTAssertEqual(store.state.displayedStocks, [ga, ma, ba])
+
+        await store.send(.sortOptionChanged(.price)) {
+            $0.sortOption = .price
+        }
+        // 가격 내림차순: 마루소프트(150,000) > 바다물산(100,000) > 가온전자(50,000)
+        XCTAssertEqual(store.state.displayedStocks, [ma, ba, ga])
+
+        await store.send(.sortOptionChanged(.name)) {
+            $0.sortOption = .name
+        }
+        // 이름 오름차순: 가온전자 < 마루소프트 < 바다물산
+        XCTAssertEqual(store.state.displayedStocks, [ga, ma, ba])
+    }
+
     func testStockFeatureShowsErrorMessageWhenLoadingFails() async {
         struct TestError: Error {}
 
