@@ -135,8 +135,6 @@ private struct StockRow: View {
                 .foregroundStyle(Color.tumoMuted)
                 .frame(width: 22, alignment: .leading)
 
-            AssetIconCircle(name: stock.stockName)
-
             VStack(alignment: .leading, spacing: 3) {
                 Text(stock.stockName)
                     .font(.system(size: 16, weight: .semibold))
@@ -166,22 +164,6 @@ private struct StockRow: View {
     }
 }
 
-private struct AssetIconCircle: View {
-    let name: String
-
-    private var initial: String {
-        String(name.prefix(1))
-    }
-
-    var body: some View {
-        Text(initial)
-            .font(.system(size: 16, weight: .semibold))
-            .foregroundStyle(Color.tumoInk)
-            .frame(width: 40, height: 40)
-            .background(Color.tumoSurfaceStrong, in: Circle())
-    }
-}
-
 private struct MarketBadge: View {
     let market: String
 
@@ -200,10 +182,6 @@ private struct MarketBadge: View {
 private struct StockSkeletonRow: View {
     var body: some View {
         HStack(spacing: 12) {
-            Circle()
-                .fill(Color.tumoSurfaceStrong)
-                .frame(width: 40, height: 40)
-
             VStack(alignment: .leading, spacing: 7) {
                 RoundedRectangle(cornerRadius: 4, style: .continuous)
                     .fill(Color.tumoSurfaceStrong)
