@@ -8,10 +8,26 @@ struct StockDataSourceImpl: StockDataSource {
         self.provider = provider
     }
 
-    func fetchStocks() async throws -> StockListResponseDTO {
+    func fetchStocks(
+        market: StockMarket,
+        page: Int,
+        size: Int
+    ) async throws -> StockPageResponseDTO {
         try await provider.request(
-            .stocks,
-            as: StockListResponseDTO.self
+            .stocks(market: market, page: page, size: size),
+            as: StockPageResponseDTO.self
+        )
+    }
+
+    func fetchStockRankings(
+        market: StockMarket,
+        type: StockRankingType,
+        page: Int,
+        size: Int
+    ) async throws -> StockPageResponseDTO {
+        try await provider.request(
+            .rankings(market: market, type: type, page: page, size: size),
+            as: StockPageResponseDTO.self
         )
     }
 

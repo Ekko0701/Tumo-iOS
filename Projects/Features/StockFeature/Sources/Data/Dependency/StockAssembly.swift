@@ -8,10 +8,12 @@ enum StockAssembly {
         let stockDataSource = StockDataSourceImpl(provider: provider)
         let stockRepository = StockRepositoryImpl(stockDataSource: stockDataSource)
         let fetchStocksUsecase = FetchStocksUsecaseImpl(stockRepository: stockRepository)
+        let fetchStockRankingsUsecase = FetchStockRankingsUsecaseImpl(stockRepository: stockRepository)
         let fetchStockUsecase = FetchStockUsecaseImpl(stockRepository: stockRepository)
 
         return StockClient.live(
             fetchStocksUsecase: fetchStocksUsecase,
+            fetchStockRankingsUsecase: fetchStockRankingsUsecase,
             fetchStockUsecase: fetchStockUsecase
         )
     }

@@ -1,3 +1,3 @@
 protocol FetchStocksUsecase: Sendable {
-    func execute() async throws -> [Stock]
+    func execute(market: StockMarket, page: Int, size: Int) async throws -> StockPage
 }

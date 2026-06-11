@@ -102,6 +102,11 @@ public struct StockFeature {
         }
     }
 
+    /// Phase 3(시장 선택·랭킹·페이지네이션 UI 연동) 전까지는 KOSPI 첫 page만 조회한다.
+    private static let defaultMarket: StockMarket = .kospi
+    private static let firstPage = 0
+    private static let defaultPageSize = 30
+
     private func loadStocks(_ state: inout State) -> Effect<Action> {
         state.isLoading = true
         state.errorMessage = nil
@@ -110,8 +115,12 @@ public struct StockFeature {
 
         return .run { send in
             do {
-                let stocks = try await stockClient.fetchStocks()
-                await send(.stocksLoaded(stocks))
+                let stockPage = try await stockClient.fetchStocks(
+                    Self.defaultMarket,
+                    Self.firstPage,
+                    Self.defaultPageSize
+                )
+                await send(.stocksLoaded(stockPage.stocks))
             } catch {
                 await send(.stocksFailed("종목 정보를 불러오지 못했습니다."))
             }

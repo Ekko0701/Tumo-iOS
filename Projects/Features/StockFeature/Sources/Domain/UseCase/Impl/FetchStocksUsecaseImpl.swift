@@ -1,4 +1,4 @@
-/// 거래 가능한 종목 목록을 조회하는 유스케이스 구현체.
+/// 시장별 종목 목록을 page 단위로 조회하는 유스케이스 구현체.
 struct FetchStocksUsecaseImpl: FetchStocksUsecase {
     private let stockRepository: any StockRepository
 
@@ -6,7 +6,7 @@ struct FetchStocksUsecaseImpl: FetchStocksUsecase {
         self.stockRepository = stockRepository
     }
 
-    func execute() async throws -> [Stock] {
-        try await stockRepository.fetchStocks()
+    func execute(market: StockMarket, page: Int, size: Int) async throws -> StockPage {
+        try await stockRepository.fetchStocks(market: market, page: page, size: size)
     }
 }
