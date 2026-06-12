@@ -67,7 +67,7 @@ final class StockFeatureTests: XCTestCase {
             stockDataSource: StubStockDataSource(
                 fetchStockRankingsHandler: { market, type, page, size in
                     XCTAssertEqual(market, .kosdaq)
-                    XCTAssertEqual(type, .popular)
+                    XCTAssertEqual(type, .tradeAmount)
                     XCTAssertEqual(page, 1)
                     XCTAssertEqual(size, 30)
 
@@ -83,7 +83,7 @@ final class StockFeatureTests: XCTestCase {
 
         let stockPage = try await repository.fetchStockRankings(
             market: .kosdaq,
-            type: .popular,
+            type: .tradeAmount,
             page: 1,
             size: 30
         )
@@ -219,7 +219,12 @@ final class StockFeatureTests: XCTestCase {
         let store = TestStore(initialState: StockFeature.State()) {
             StockFeature()
         } withDependencies: {
-            $0.stockClient.fetchStocks = { _, _, _ in
+            $0.stockClient.fetchStockRankings = { market, type, page, size in
+                XCTAssertEqual(market, .kospi)
+                XCTAssertEqual(type, .tradeAmount)
+                XCTAssertEqual(page, 0)
+                XCTAssertEqual(size, 30)
+
                 stockPage
             }
         }
@@ -262,8 +267,12 @@ final class StockFeatureTests: XCTestCase {
         ) {
             StockFeature()
         } withDependencies: {
-            $0.stockClient.fetchStocks = { _, page, _ in
+            $0.stockClient.fetchStockRankings = { market, type, page, size in
+                XCTAssertEqual(market, .kospi)
+                XCTAssertEqual(type, .tradeAmount)
                 XCTAssertEqual(page, 1)
+                XCTAssertEqual(size, 30)
+
                 return secondPage
             }
         }
@@ -343,7 +352,7 @@ final class StockFeatureTests: XCTestCase {
         ) {
             StockFeature()
         } withDependencies: {
-            $0.stockClient.fetchStocks = { _, _, _ in
+            $0.stockClient.fetchStockRankings = { _, _, _, _ in
                 throw TestError()
             }
         }
@@ -358,15 +367,7 @@ final class StockFeatureTests: XCTestCase {
         XCTAssertNil(store.state.errorMessage)
     }
 
-    func testStockFeatureSortOptionChangedSortsDisplayedStocks() async {
-        // 한글 자모 순서가 명확한 이름(가 < 마 < 바)으로 로캘 의존성을 제거한다.
-        let ga = Stock(
-            stockCode: "000001",
-            stockName: "가온전자",
-            market: "KOSPI",
-            currentPrice: 50_000,
-            priceChangedAt: "2026-05-13T15:30:00"
-        )
+    func testStockFeatureSortOptionChangedLoadsRankingPage() async {
         let ma = Stock(
             stockCode: "000002",
             stockName: "마루소프트",
@@ -381,26 +382,31 @@ final class StockFeatureTests: XCTestCase {
             currentPrice: 100_000,
             priceChangedAt: "2026-05-13T15:30:00"
         )
+        let risingPage = StockPage(stocks: [ma, ba], page: 0, hasNext: true)
         let store = TestStore(
-            initialState: StockFeature.State(stocks: [ga, ma, ba])
+            initialState: StockFeature.State()
         ) {
             StockFeature()
+        } withDependencies: {
+            $0.stockClient.fetchStockRankings = { market, type, page, size in
+                XCTAssertEqual(market, .kospi)
+                XCTAssertEqual(type, .rising)
+                XCTAssertEqual(page, 0)
+                XCTAssertEqual(size, 30)
+
+                return risingPage
+            }
         }
 
-        // 기본(.popular)은 원본 순서를 유지한다.
-        XCTAssertEqual(store.state.displayedStocks, [ga, ma, ba])
-
-        await store.send(.sortOptionChanged(.price)) {
-            $0.sortOption = .price
+        await store.send(.sortOptionChanged(.rising)) {
+            $0.sortOption = .rising
+            $0.isLoading = true
         }
-        // 가격 내림차순: 마루소프트(150,000) > 바다물산(100,000) > 가온전자(50,000)
-        XCTAssertEqual(store.state.displayedStocks, [ma, ba, ga])
-
-        await store.send(.sortOptionChanged(.name)) {
-            $0.sortOption = .name
+        await store.receive(.stocksLoaded(risingPage)) {
+            $0.isLoading = false
+            $0.stocks = [ma, ba]
+            $0.hasNextPage = true
         }
-        // 이름 오름차순: 가온전자 < 마루소프트 < 바다물산
-        XCTAssertEqual(store.state.displayedStocks, [ga, ma, ba])
     }
 
     func testStockFeatureShowsErrorMessageWhenLoadingFails() async {
@@ -409,7 +415,7 @@ final class StockFeatureTests: XCTestCase {
         let store = TestStore(initialState: StockFeature.State()) {
             StockFeature()
         } withDependencies: {
-            $0.stockClient.fetchStocks = { _, _, _ in
+            $0.stockClient.fetchStockRankings = { _, _, _, _ in
                 throw TestError()
             }
         }

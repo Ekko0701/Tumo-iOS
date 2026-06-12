@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import Foundation
 import SwiftUI
 
 public struct StockView: View {
@@ -21,10 +22,8 @@ public struct StockView: View {
                 LazyVStack(spacing: 0) {
                     StockListHeader()
 
-                    if !store.stocks.isEmpty {
-                        StockSortSegment(selected: store.sortOption) { option in
-                            store.send(.sortOptionChanged(option), animation: .easeInOut(duration: 0.2))
-                        }
+                    StockSortSegment(selected: store.sortOption) { option in
+                        store.send(.sortOptionChanged(option), animation: .easeInOut(duration: 0.2))
                     }
 
                     content
@@ -57,7 +56,7 @@ public struct StockView: View {
             let stocks = store.displayedStocks
 
             ForEach(Array(stocks.enumerated()), id: \.element.id) { index, stock in
-                StockRow(rank: index + 1, stock: stock)
+                StockRow(rank: index + 1, stock: stock, sortOption: store.sortOption)
                     .onAppear {
                         store.send(.rowAppeared(stockCode: stock.stockCode))
                     }
@@ -88,7 +87,7 @@ private struct StockListHeader: View {
                 .font(.system(size: 26, weight: .bold))
                 .foregroundStyle(Color.tumoInk)
 
-            Text("실시간 인기 종목")
+            Text("실시간 종목 랭킹")
                 .font(.system(size: 14, weight: .regular))
                 .foregroundStyle(Color.tumoMuted)
         }
@@ -106,26 +105,26 @@ private struct StockSortSegment: View {
     let onSelect: (StockSortOption) -> Void
 
     var body: some View {
-        HStack(spacing: 8) {
-            ForEach(StockSortOption.allCases) { option in
-                let isSelected = option == selected
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(StockSortOption.allCases) { option in
+                    let isSelected = option == selected
 
-                Button {
-                    onSelect(option)
-                } label: {
-                    Text(option.title)
-                        .font(.system(size: 14, weight: isSelected ? .semibold : .regular))
-                        .foregroundStyle(isSelected ? Color.tumoInk : Color.tumoMuted)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(isSelected ? Color.tumoSurfaceStrong : Color.clear, in: Capsule())
+                    Button {
+                        onSelect(option)
+                    } label: {
+                        Text(option.title)
+                            .font(.system(size: 14, weight: isSelected ? .semibold : .regular))
+                            .foregroundStyle(isSelected ? Color.tumoInk : Color.tumoMuted)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(isSelected ? Color.tumoSurfaceStrong : Color.clear, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
-
-            Spacer(minLength: 0)
+            .padding(.horizontal, 20)
         }
-        .padding(.horizontal, 20)
         .padding(.bottom, 4)
     }
 }
@@ -135,6 +134,7 @@ private struct StockSortSegment: View {
 private struct StockRow: View {
     let rank: Int
     let stock: Stock
+    let sortOption: StockSortOption
 
     var body: some View {
         HStack(spacing: 12) {
@@ -162,14 +162,86 @@ private struct StockRow: View {
 
             Spacer(minLength: 12)
 
-            Text("\(stock.currentPrice.formatted())원")
-                .font(.system(size: 16, weight: .semibold))
-                .monospacedDigit()
-                .foregroundStyle(Color.tumoInk)
+            VStack(alignment: .trailing, spacing: 3) {
+                Text("\(stock.currentPrice.formatted())원")
+                    .font(.system(size: 16, weight: .semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(Color.tumoInk)
+
+                Text(metricText)
+                    .font(.system(size: 12, weight: .regular))
+                    .monospacedDigit()
+                    .foregroundStyle(metricColor)
+                    .lineLimit(1)
+            }
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)
         .contentShape(Rectangle())
+    }
+
+    private var metricText: String {
+        switch sortOption {
+        case .tradeAmount:
+            "거래대금 \(formattedAmount(stock.tradeAmount))"
+        case .tradeVolume:
+            "거래량 \(formattedVolume(stock.tradeVolume))"
+        case .rising, .falling:
+            formattedChangeRate(stock.changeRate)
+        }
+    }
+
+    private var metricColor: Color {
+        guard let changeRate = stock.changeRate else {
+            return Color.tumoMuted
+        }
+
+        let value = NSDecimalNumber(decimal: changeRate).doubleValue
+
+        if value > 0 {
+            return Color.tumoUp
+        }
+
+        if value < 0 {
+            return Color.tumoDown
+        }
+
+        return Color.tumoMuted
+    }
+
+    private func formattedAmount(_ amount: Int?) -> String {
+        guard let amount else {
+            return "-"
+        }
+
+        if amount >= 100_000_000 {
+            return "\(amount / 100_000_000)억"
+        }
+
+        if amount >= 10_000 {
+            return "\(amount / 10_000)만"
+        }
+
+        return amount.formatted()
+    }
+
+    private func formattedVolume(_ volume: Int?) -> String {
+        guard let volume else {
+            return "-"
+        }
+
+        return volume.formatted()
+    }
+
+    private func formattedChangeRate(_ changeRate: Decimal?) -> String {
+        guard let changeRate else {
+            return "등락률 -"
+        }
+
+        let value = NSDecimalNumber(decimal: changeRate).doubleValue
+        let sign = value > 0 ? "+" : ""
+
+        return "\(sign)\(String(format: "%.2f", value))%"
     }
 }
 
@@ -284,6 +356,10 @@ private extension Color {
                         stockName: "삼성전자",
                         market: "KOSPI",
                         currentPrice: 75_000,
+                        changePrice: 100,
+                        changeRate: Decimal(string: "0.13"),
+                        tradeVolume: 1_234_567,
+                        tradeAmount: 92_592_592_500,
                         priceChangedAt: "2026-05-13T15:30:00"
                     ),
                     Stock(
@@ -291,6 +367,10 @@ private extension Color {
                         stockName: "SK하이닉스",
                         market: "KOSPI",
                         currentPrice: 180_000,
+                        changePrice: -500,
+                        changeRate: Decimal(string: "-0.28"),
+                        tradeVolume: 987_654,
+                        tradeAmount: 177_777_720_000,
                         priceChangedAt: "2026-05-13T15:30:00"
                     ),
                     Stock(
@@ -298,6 +378,10 @@ private extension Color {
                         stockName: "NAVER",
                         market: "KOSPI",
                         currentPrice: 190_000,
+                        changePrice: 2_500,
+                        changeRate: Decimal(string: "1.33"),
+                        tradeVolume: 456_789,
+                        tradeAmount: 86_789_910_000,
                         priceChangedAt: "2026-05-13T15:30:00"
                     ),
                     Stock(
@@ -305,6 +389,10 @@ private extension Color {
                         stockName: "카카오",
                         market: "KOSDAQ",
                         currentPrice: 55_000,
+                        changePrice: -1_000,
+                        changeRate: Decimal(string: "-1.79"),
+                        tradeVolume: 765_432,
+                        tradeAmount: 42_098_760_000,
                         priceChangedAt: "2026-05-13T15:30:00"
                     )
                 ]

@@ -1,22 +1,38 @@
 import ComposableArchitecture
 import Foundation
 
-/// 종목 리스트 정렬 기준. 현재 보유 필드(이름/가격)만 사용한다.
+/// 종목 리스트 랭킹 기준. 백엔드 `StockRankingType`으로 변환해 서버 랭킹 API를 호출한다.
 public enum StockSortOption: String, CaseIterable, Equatable, Sendable, Identifiable {
-    case popular
-    case name
-    case price
+    case tradeAmount
+    case tradeVolume
+    case rising
+    case falling
 
     public var id: String { rawValue }
 
     public var title: String {
         switch self {
-        case .popular:
-            "인기"
-        case .name:
-            "이름순"
-        case .price:
-            "가격순"
+        case .tradeAmount:
+            "거래대금"
+        case .tradeVolume:
+            "거래량"
+        case .rising:
+            "상승률"
+        case .falling:
+            "하락률"
+        }
+    }
+
+    var rankingType: StockRankingType {
+        switch self {
+        case .tradeAmount:
+            .tradeAmount
+        case .tradeVolume:
+            .tradeVolume
+        case .rising:
+            .rising
+        case .falling:
+            .falling
         }
     }
 }
@@ -30,7 +46,7 @@ public struct StockFeature {
     @ObservableState
     public struct State: Equatable {
         public var stocks: [Stock] = []
-        public var sortOption: StockSortOption = .popular
+        public var sortOption: StockSortOption = .tradeAmount
         public var isLoading = false
         public var errorMessage: String?
         /// 마지막으로 로드한 page 번호.
@@ -42,7 +58,7 @@ public struct StockFeature {
 
         public init(
             stocks: [Stock] = [],
-            sortOption: StockSortOption = .popular,
+            sortOption: StockSortOption = .tradeAmount,
             isLoading: Bool = false,
             errorMessage: String? = nil,
             currentPage: Int = 0,
@@ -64,14 +80,7 @@ public struct StockFeature {
 
         /// 정렬 옵션을 적용한, 화면에 표시할 종목 목록.
         var displayedStocks: [Stock] {
-            switch sortOption {
-            case .popular:
-                stocks
-            case .name:
-                stocks.sorted { $0.stockName.localizedCompare($1.stockName) == .orderedAscending }
-            case .price:
-                stocks.sorted { $0.currentPrice > $1.currentPrice }
-            }
+            stocks
         }
     }
 
@@ -101,8 +110,16 @@ public struct StockFeature {
                 return loadFirstPage(&state)
 
             case .sortOptionChanged(let option):
+                guard state.sortOption != option else {
+                    return .none
+                }
+
                 state.sortOption = option
-                return .none
+                state.stocks = []
+                state.currentPage = Self.firstPage
+                state.hasNextPage = false
+                state.isLoadingNextPage = false
+                return loadFirstPage(&state)
 
             case .rowAppeared(let stockCode):
                 guard state.hasNextPage,
@@ -143,7 +160,7 @@ public struct StockFeature {
         }
     }
 
-    /// Phase 3(시장 선택·랭킹 UI 연동) 전까지는 KOSPI만 조회한다.
+    /// 시장 선택 UI를 붙이기 전까지는 KOSPI만 조회한다.
     private static let defaultMarket: StockMarket = .kospi
     private static let firstPage = 0
     private static let defaultPageSize = 30
@@ -152,7 +169,7 @@ public struct StockFeature {
         state.isLoading = true
         state.errorMessage = nil
 
-        return fetchPage(Self.firstPage) { .stocksLoaded($0) } onFailure: {
+        return fetchPage(Self.firstPage, rankingType: state.sortOption.rankingType) { .stocksLoaded($0) } onFailure: {
             .stocksFailed("종목 정보를 불러오지 못했습니다.")
         }
     }
@@ -160,13 +177,14 @@ public struct StockFeature {
     private func loadNextPage(_ state: inout State) -> Effect<Action> {
         state.isLoadingNextPage = true
 
-        return fetchPage(state.currentPage + 1) { .nextPageLoaded($0) } onFailure: {
+        return fetchPage(state.currentPage + 1, rankingType: state.sortOption.rankingType) { .nextPageLoaded($0) } onFailure: {
             .nextPageFailed
         }
     }
 
     private func fetchPage(
         _ page: Int,
+        rankingType: StockRankingType,
         onSuccess: @escaping @Sendable (StockPage) -> Action,
         onFailure: @escaping @Sendable () -> Action
     ) -> Effect<Action> {
@@ -174,8 +192,9 @@ public struct StockFeature {
 
         return .run { send in
             do {
-                let stockPage = try await stockClient.fetchStocks(
+                let stockPage = try await stockClient.fetchStockRankings(
                     Self.defaultMarket,
+                    rankingType,
                     page,
                     Self.defaultPageSize
                 )
