@@ -57,9 +57,6 @@ public struct StockView: View {
 
             ForEach(Array(stocks.enumerated()), id: \.element.id) { index, stock in
                 StockRow(rank: index + 1, stock: stock, sortOption: store.sortOption)
-                    .onAppear {
-                        store.send(.rowAppeared(stockCode: stock.stockCode))
-                    }
 
                 if index < stocks.count - 1 {
                     Rectangle()
@@ -67,12 +64,6 @@ public struct StockView: View {
                         .frame(height: 1)
                         .padding(.leading, 20)
                 }
-            }
-
-            if store.isLoadingNextPage {
-                ProgressView()
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 20)
             }
         }
     }
@@ -87,7 +78,7 @@ private struct StockListHeader: View {
                 .font(.system(size: 26, weight: .bold))
                 .foregroundStyle(Color.tumoInk)
 
-            Text("실시간 종목 랭킹")
+            Text("실시간 종목 랭킹 Top 30")
                 .font(.system(size: 14, weight: .regular))
                 .foregroundStyle(Color.tumoMuted)
         }

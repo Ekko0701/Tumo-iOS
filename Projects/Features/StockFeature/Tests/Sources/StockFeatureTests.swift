@@ -238,135 +238,6 @@ final class StockFeatureTests: XCTestCase {
         }
     }
 
-    func testStockFeatureLoadsNextPageWhenLastRowAppears() async {
-        let firstPageStocks = [
-            Stock(
-                stockCode: "005930",
-                stockName: "삼성전자",
-                market: "KOSPI",
-                currentPrice: 75_000,
-                priceChangedAt: "2026-05-13T15:30:00"
-            )
-        ]
-        let secondPageStocks = [
-            Stock(
-                stockCode: "000660",
-                stockName: "SK하이닉스",
-                market: "KOSPI",
-                currentPrice: 180_000,
-                priceChangedAt: "2026-05-13T15:30:00"
-            )
-        ]
-        let secondPage = StockPage(stocks: secondPageStocks, page: 1, hasNext: false)
-        let store = TestStore(
-            initialState: StockFeature.State(
-                stocks: firstPageStocks,
-                currentPage: 0,
-                hasNextPage: true
-            )
-        ) {
-            StockFeature()
-        } withDependencies: {
-            $0.stockClient.fetchStockRankings = { market, type, page, size in
-                XCTAssertEqual(market, .kospi)
-                XCTAssertEqual(type, .tradeAmount)
-                XCTAssertEqual(page, 1)
-                XCTAssertEqual(size, 30)
-
-                return secondPage
-            }
-        }
-
-        await store.send(.rowAppeared(stockCode: "005930")) {
-            $0.isLoadingNextPage = true
-        }
-        await store.receive(.nextPageLoaded(secondPage)) {
-            $0.isLoadingNextPage = false
-            $0.currentPage = 1
-            $0.hasNextPage = false
-            $0.stocks = firstPageStocks + secondPageStocks
-        }
-    }
-
-    func testStockFeatureIgnoresRowAppearedWhenNotLastRowOrNoNextPage() async {
-        let stocks = [
-            Stock(
-                stockCode: "005930",
-                stockName: "삼성전자",
-                market: "KOSPI",
-                currentPrice: 75_000,
-                priceChangedAt: "2026-05-13T15:30:00"
-            ),
-            Stock(
-                stockCode: "000660",
-                stockName: "SK하이닉스",
-                market: "KOSPI",
-                currentPrice: 180_000,
-                priceChangedAt: "2026-05-13T15:30:00"
-            )
-        ]
-
-        // 마지막 행이 아니면 로드하지 않는다.
-        let store = TestStore(
-            initialState: StockFeature.State(
-                stocks: stocks,
-                currentPage: 0,
-                hasNextPage: true
-            )
-        ) {
-            StockFeature()
-        }
-        await store.send(.rowAppeared(stockCode: "005930"))
-
-        // 다음 page가 없으면 마지막 행이어도 로드하지 않는다.
-        let exhaustedStore = TestStore(
-            initialState: StockFeature.State(
-                stocks: stocks,
-                currentPage: 0,
-                hasNextPage: false
-            )
-        ) {
-            StockFeature()
-        }
-        await exhaustedStore.send(.rowAppeared(stockCode: "000660"))
-    }
-
-    func testStockFeatureNextPageFailureKeepsExistingStocks() async {
-        struct TestError: Error {}
-
-        let stocks = [
-            Stock(
-                stockCode: "005930",
-                stockName: "삼성전자",
-                market: "KOSPI",
-                currentPrice: 75_000,
-                priceChangedAt: "2026-05-13T15:30:00"
-            )
-        ]
-        let store = TestStore(
-            initialState: StockFeature.State(
-                stocks: stocks,
-                currentPage: 0,
-                hasNextPage: true
-            )
-        ) {
-            StockFeature()
-        } withDependencies: {
-            $0.stockClient.fetchStockRankings = { _, _, _, _ in
-                throw TestError()
-            }
-        }
-
-        await store.send(.rowAppeared(stockCode: "005930")) {
-            $0.isLoadingNextPage = true
-        }
-        await store.receive(.nextPageFailed) {
-            $0.isLoadingNextPage = false
-        }
-        XCTAssertEqual(store.state.stocks, stocks)
-        XCTAssertNil(store.state.errorMessage)
-    }
-
     func testStockFeatureSortOptionChangedLoadsRankingPage() async {
         let ma = Stock(
             stockCode: "000002",
@@ -405,7 +276,6 @@ final class StockFeatureTests: XCTestCase {
         await store.receive(.stocksLoaded(risingPage)) {
             $0.isLoading = false
             $0.stocks = [ma, ba]
-            $0.hasNextPage = true
         }
     }
 
@@ -423,9 +293,9 @@ final class StockFeatureTests: XCTestCase {
         await store.send(.onAppear) {
             $0.isLoading = true
         }
-        await store.receive(.stocksFailed("종목 정보를 불러오지 못했습니다.")) {
+        await store.receive(.stocksFailed("종목 랭킹을 불러오지 못했습니다.")) {
             $0.isLoading = false
-            $0.errorMessage = "종목 정보를 불러오지 못했습니다."
+            $0.errorMessage = "종목 랭킹을 불러오지 못했습니다."
         }
     }
 }
