@@ -41,6 +41,27 @@ struct StockRepositoryImpl: StockRepository {
 
         return responseDTO.toEntity()
     }
+
+    func observeRealtimePrices(stockCodes: [String]) -> AsyncThrowingStream<StockPriceUpdate, Error> {
+        let events = stockDataSource.observeRealtimePrices(stockCodes: stockCodes)
+
+        return AsyncThrowingStream { continuation in
+            let task = _Concurrency.Task {
+                do {
+                    for try await eventDTO in events {
+                        continuation.yield(eventDTO.toEntity())
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+
+            continuation.onTermination = { _ in
+                task.cancel()
+            }
+        }
+    }
 }
 
 private extension StockPageResponseDTO {
@@ -49,6 +70,20 @@ private extension StockPageResponseDTO {
             stocks: stocks.map { $0.toEntity() },
             page: page,
             hasNext: hasNext
+        )
+    }
+}
+
+private extension StockPriceEventDTO {
+    func toEntity() -> StockPriceUpdate {
+        StockPriceUpdate(
+            stockCode: price.stockCode,
+            currentPrice: price.currentPrice,
+            changePrice: price.changePrice,
+            changeRate: price.changeRate,
+            tradeVolume: price.tradeVolume,
+            tradeAmount: price.tradeAmount,
+            priceChangedAt: price.priceChangedAt
         )
     }
 }

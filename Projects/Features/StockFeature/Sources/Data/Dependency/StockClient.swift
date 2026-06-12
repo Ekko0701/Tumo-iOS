@@ -17,6 +17,10 @@ struct StockClient: Sendable {
 
     var fetchStock: @Sendable (_ stockCode: String) async throws -> Stock
 
+    var observeRealtimePrices: @Sendable (
+        _ stockCodes: [String]
+    ) -> AsyncThrowingStream<StockPriceUpdate, Error>
+
     init(
         fetchStocks: @escaping @Sendable (
             _ market: StockMarket,
@@ -29,11 +33,15 @@ struct StockClient: Sendable {
             _ page: Int,
             _ size: Int
         ) async throws -> StockPage,
-        fetchStock: @escaping @Sendable (_ stockCode: String) async throws -> Stock
+        fetchStock: @escaping @Sendable (_ stockCode: String) async throws -> Stock,
+        observeRealtimePrices: @escaping @Sendable (
+            _ stockCodes: [String]
+        ) -> AsyncThrowingStream<StockPriceUpdate, Error>
     ) {
         self.fetchStocks = fetchStocks
         self.fetchStockRankings = fetchStockRankings
         self.fetchStock = fetchStock
+        self.observeRealtimePrices = observeRealtimePrices
     }
 }
 
@@ -41,7 +49,8 @@ extension StockClient {
     static func live(
         fetchStocksUsecase: any FetchStocksUsecase,
         fetchStockRankingsUsecase: any FetchStockRankingsUsecase,
-        fetchStockUsecase: any FetchStockUsecase
+        fetchStockUsecase: any FetchStockUsecase,
+        observeRealtimePricesUsecase: any ObserveRealtimePricesUsecase
     ) -> StockClient {
         StockClient(
             fetchStocks: { market, page, size in
@@ -57,6 +66,9 @@ extension StockClient {
             },
             fetchStock: { stockCode in
                 try await fetchStockUsecase.execute(stockCode: stockCode)
+            },
+            observeRealtimePrices: { stockCodes in
+                observeRealtimePricesUsecase.execute(stockCodes: stockCodes)
             }
         )
     }

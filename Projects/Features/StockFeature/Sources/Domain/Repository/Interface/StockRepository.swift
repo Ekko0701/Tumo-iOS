@@ -13,4 +13,7 @@ protocol StockRepository: Sendable {
     ) async throws -> StockPage
 
     func fetchStock(stockCode: String) async throws -> Stock
+
+    /// 지정 종목의 실시간 체결가 stream을 구독한다.
+    func observeRealtimePrices(stockCodes: [String]) -> AsyncThrowingStream<StockPriceUpdate, Error>
 }

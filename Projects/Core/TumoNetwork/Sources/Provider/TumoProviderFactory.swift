@@ -37,16 +37,30 @@ public struct TumoProviderFactory: Sendable {
     ///
     /// 요청 직전에 저장된 accessToken을 읽어 Authorization 헤더에 주입한다.
     public func authorizedProvider<Target: TargetType>() -> Provider<Target> {
-        let authTokenInterceptor = AuthTokenInterceptor {
-            try tokenStorageClient.load()?.accessToken
-        }
-
-        return Provider<Target>(
+        Provider<Target>(
             urlSession: urlSession,
             interceptors: [
-                authTokenInterceptor
+                makeAuthTokenInterceptor()
             ],
             maxRetryCount: maxRetryCount
         )
+    }
+
+    /// 인증이 필요한 SSE stream 연결에 사용할 SseClient를 생성한다.
+    ///
+    /// HTTP 요청과 동일하게 연결 직전에 저장된 accessToken을 Authorization 헤더에 주입한다.
+    public func authorizedSseClient() -> SseClient {
+        SseClient(
+            urlSession: urlSession,
+            interceptors: [
+                makeAuthTokenInterceptor()
+            ]
+        )
+    }
+
+    private func makeAuthTokenInterceptor() -> AuthTokenInterceptor {
+        AuthTokenInterceptor {
+            try tokenStorageClient.load()?.accessToken
+        }
     }
 }

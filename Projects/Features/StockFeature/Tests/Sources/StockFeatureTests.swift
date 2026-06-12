@@ -225,8 +225,9 @@ final class StockFeatureTests: XCTestCase {
                 XCTAssertEqual(page, 0)
                 XCTAssertEqual(size, 30)
 
-                stockPage
+                return stockPage
             }
+            $0.stockClient.observeRealtimePrices = { _ in .never }
         }
 
         await store.send(.onAppear) {
@@ -236,6 +237,8 @@ final class StockFeatureTests: XCTestCase {
             $0.isLoading = false
             $0.stocks = stocks
         }
+        await store.receive(.startRealtimeUpdates)
+        await store.send(.onDisappear)
     }
 
     func testStockFeatureSortOptionChangedLoadsRankingPage() async {
@@ -267,6 +270,7 @@ final class StockFeatureTests: XCTestCase {
 
                 return risingPage
             }
+            $0.stockClient.observeRealtimePrices = { _ in .never }
         }
 
         await store.send(.sortOptionChanged(.rising)) {
@@ -277,6 +281,163 @@ final class StockFeatureTests: XCTestCase {
             $0.isLoading = false
             $0.stocks = [ma, ba]
         }
+        await store.receive(.startRealtimeUpdates)
+        await store.send(.onDisappear)
+    }
+
+    func testStockFeatureRealtimePriceUpdatesOnlyMatchingStock() async {
+        let samsung = Stock(
+            stockCode: "005930",
+            stockName: "삼성전자",
+            market: "KOSPI",
+            currentPrice: 75_000,
+            priceChangedAt: "2026-05-13T15:30:00"
+        )
+        let skHynix = Stock(
+            stockCode: "000660",
+            stockName: "SK하이닉스",
+            market: "KOSPI",
+            currentPrice: 180_000,
+            priceChangedAt: "2026-05-13T15:30:00"
+        )
+        let store = TestStore(
+            initialState: StockFeature.State(stocks: [samsung, skHynix])
+        ) {
+            StockFeature()
+        }
+        let update = StockPriceUpdate(
+            stockCode: "005930",
+            currentPrice: 76_000,
+            changePrice: 1_000,
+            changeRate: Decimal(string: "1.33"),
+            tradeVolume: 2_000_000,
+            tradeAmount: 152_000_000_000,
+            priceChangedAt: "2026-05-13T15:31:00"
+        )
+
+        await store.send(.realtimePriceReceived(update)) {
+            $0.stocks = [
+                Stock(
+                    stockCode: "005930",
+                    stockName: "삼성전자",
+                    market: "KOSPI",
+                    currentPrice: 76_000,
+                    changePrice: 1_000,
+                    changeRate: Decimal(string: "1.33"),
+                    tradeVolume: 2_000_000,
+                    tradeAmount: 152_000_000_000,
+                    priceChangedAt: "2026-05-13T15:31:00"
+                ),
+                skHynix
+            ]
+        }
+
+        // 리스트에 없는 종목 코드는 무시한다.
+        let unknownUpdate = StockPriceUpdate(
+            stockCode: "999999",
+            currentPrice: 1,
+            priceChangedAt: "2026-05-13T15:31:00"
+        )
+        await store.send(.realtimePriceReceived(unknownUpdate))
+    }
+
+    func testStockFeatureStartRealtimeUpdatesYieldsReceivedPrices() async {
+        let samsung = Stock(
+            stockCode: "005930",
+            stockName: "삼성전자",
+            market: "KOSPI",
+            currentPrice: 75_000,
+            priceChangedAt: "2026-05-13T15:30:00"
+        )
+        let update = StockPriceUpdate(
+            stockCode: "005930",
+            currentPrice: 76_000,
+            priceChangedAt: "2026-05-13T15:31:00"
+        )
+        let store = TestStore(
+            initialState: StockFeature.State(stocks: [samsung])
+        ) {
+            StockFeature()
+        } withDependencies: {
+            $0.stockClient.observeRealtimePrices = { stockCodes in
+                XCTAssertEqual(stockCodes, ["005930"])
+
+                return AsyncThrowingStream { continuation in
+                    continuation.yield(update)
+                    // finish하지 않고 유지해 재연결 분기와 분리한다.
+                }
+            }
+        }
+
+        await store.send(.startRealtimeUpdates)
+        await store.receive(.realtimePriceReceived(update)) {
+            $0.stocks = [
+                Stock(
+                    stockCode: "005930",
+                    stockName: "삼성전자",
+                    market: "KOSPI",
+                    currentPrice: 76_000,
+                    priceChangedAt: "2026-05-13T15:31:00"
+                )
+            ]
+        }
+        await store.send(.onDisappear)
+    }
+
+    func testStockFeatureReconnectsAfterStreamEndsWithBackoff() async {
+        let samsung = Stock(
+            stockCode: "005930",
+            stockName: "삼성전자",
+            market: "KOSPI",
+            currentPrice: 75_000,
+            priceChangedAt: "2026-05-13T15:30:00"
+        )
+        let clock = TestClock()
+        let connectionCount = LockIsolated(0)
+        let store = TestStore(
+            initialState: StockFeature.State(stocks: [samsung])
+        ) {
+            StockFeature()
+        } withDependencies: {
+            $0.continuousClock = clock
+            $0.stockClient.observeRealtimePrices = { _ in
+                connectionCount.withValue { $0 += 1 }
+
+                if connectionCount.value == 1 {
+                    // 첫 연결은 즉시 종료되어 재연결 흐름을 일으킨다.
+                    return AsyncThrowingStream { $0.finish() }
+                }
+
+                return .never
+            }
+        }
+
+        await store.send(.startRealtimeUpdates)
+        await store.receive(.realtimeStreamFailed) {
+            $0.realtimeRetryCount = 1
+        }
+
+        await clock.advance(by: .seconds(1))
+        await store.receive(.startRealtimeUpdates)
+        XCTAssertEqual(connectionCount.value, 2)
+
+        await store.send(.onDisappear)
+    }
+
+    func testStockFeatureStartRealtimeUpdatesDoesNothingWhenStocksIsEmpty() async {
+        let store = TestStore(initialState: StockFeature.State()) {
+            StockFeature()
+        }
+
+        await store.send(.startRealtimeUpdates)
+    }
+
+    func testRealtimeRetryDelayBacksOffExponentiallyWithCap() {
+        XCTAssertEqual(StockFeature.realtimeRetryDelay(retryCount: 1), 1)
+        XCTAssertEqual(StockFeature.realtimeRetryDelay(retryCount: 2), 2)
+        XCTAssertEqual(StockFeature.realtimeRetryDelay(retryCount: 3), 4)
+        XCTAssertEqual(StockFeature.realtimeRetryDelay(retryCount: 6), 30)
+        XCTAssertEqual(StockFeature.realtimeRetryDelay(retryCount: 100), 30)
     }
 
     func testStockFeatureShowsErrorMessageWhenLoadingFails() async {
@@ -329,6 +490,9 @@ private struct StubStockDataSource: StockDataSource {
             priceChangedAt: "2026-05-13T15:30:00"
         )
     }
+    var observeRealtimePricesHandler: @Sendable (
+        _ stockCodes: [String]
+    ) -> AsyncThrowingStream<StockPriceEventDTO, Error> = { _ in .never }
 
     func fetchStocks(
         market: StockMarket,
@@ -349,6 +513,10 @@ private struct StubStockDataSource: StockDataSource {
 
     func fetchStock(stockCode: String) async throws -> StockResponseDTO {
         try await fetchStockHandler(stockCode)
+    }
+
+    func observeRealtimePrices(stockCodes: [String]) -> AsyncThrowingStream<StockPriceEventDTO, Error> {
+        observeRealtimePricesHandler(stockCodes)
     }
 }
 
@@ -377,6 +545,9 @@ private struct StubStockRepository: StockRepository {
             priceChangedAt: "2026-05-13T15:30:00"
         )
     }
+    var observeRealtimePricesHandler: @Sendable (
+        _ stockCodes: [String]
+    ) -> AsyncThrowingStream<StockPriceUpdate, Error> = { _ in .never }
 
     func fetchStocks(
         market: StockMarket,
@@ -397,5 +568,9 @@ private struct StubStockRepository: StockRepository {
 
     func fetchStock(stockCode: String) async throws -> Stock {
         try await fetchStockHandler(stockCode)
+    }
+
+    func observeRealtimePrices(stockCodes: [String]) -> AsyncThrowingStream<StockPriceUpdate, Error> {
+        observeRealtimePricesHandler(stockCodes)
     }
 }

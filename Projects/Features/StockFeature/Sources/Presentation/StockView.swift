@@ -38,6 +38,9 @@ public struct StockView: View {
         .task {
             store.send(.onAppear)
         }
+        .onDisappear {
+            store.send(.onDisappear)
+        }
     }
 
     @ViewBuilder

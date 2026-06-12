@@ -1,11 +1,16 @@
+import Foundation
 import TumoNetwork
 
 /// 실제 백엔드 종목 API를 호출하는 DataSource 구현체.
 struct StockDataSourceImpl: StockDataSource {
-    private let provider: Provider<StockAPI>
+    private static let stockPriceEventName = "stock-price"
 
-    init(provider: Provider<StockAPI>) {
+    private let provider: Provider<StockAPI>
+    private let sseClient: SseClient
+
+    init(provider: Provider<StockAPI>, sseClient: SseClient) {
         self.provider = provider
+        self.sseClient = sseClient
     }
 
     func fetchStocks(
@@ -36,5 +41,31 @@ struct StockDataSourceImpl: StockDataSource {
             .stock(stockCode: stockCode),
             as: StockResponseDTO.self
         )
+    }
+
+    func observeRealtimePrices(stockCodes: [String]) -> AsyncThrowingStream<StockPriceEventDTO, Error> {
+        let events = sseClient.connect(StockAPI.realtimePriceStream(stockCodes: stockCodes))
+
+        return AsyncThrowingStream { continuation in
+            let task = _Concurrency.Task {
+                do {
+                    // heartbeat 등 다른 이벤트는 무시하고 체결가 이벤트만 DTO로 변환한다.
+                    for try await event in events where event.name == Self.stockPriceEventName {
+                        let dto = try JSONDecoder().decode(
+                            StockPriceEventDTO.self,
+                            from: Data(event.data.utf8)
+                        )
+                        continuation.yield(dto)
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+
+            continuation.onTermination = { _ in
+                task.cancel()
+            }
+        }
     }
 }
