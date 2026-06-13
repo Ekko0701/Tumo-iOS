@@ -43,19 +43,32 @@ struct StockDataSourceImpl: StockDataSource {
         )
     }
 
-    func observeRealtimePrices(stockCodes: [String]) -> AsyncThrowingStream<StockPriceEventDTO, Error> {
+    func observeRealtimePrices(stockCodes: [String]) -> AsyncThrowingStream<StockRealtimeEventDTO, Error> {
         let events = sseClient.connect(StockAPI.realtimePriceStream(stockCodes: stockCodes))
 
         return AsyncThrowingStream { continuation in
             let task = _Concurrency.Task {
                 do {
-                    // heartbeat 등 다른 이벤트는 무시하고 체결가 이벤트만 DTO로 변환한다.
-                    for try await event in events where event.name == Self.stockPriceEventName {
+                    var didAnnounceConnection = false
+
+                    for try await event in events {
+                        // 첫 이벤트(heartbeat 포함)는 연결이 살아있다는 증거다.
+                        // 재연결 backoff 리셋의 근거이므로 한 번만 알린다.
+                        if !didAnnounceConnection {
+                            didAnnounceConnection = true
+                            continuation.yield(.connected)
+                        }
+
+                        // 체결가 이벤트만 가격 DTO로 변환한다. heartbeat 등은 연결 신호로만 쓴다.
+                        guard event.name == Self.stockPriceEventName else {
+                            continue
+                        }
+
                         let dto = try JSONDecoder().decode(
                             StockPriceEventDTO.self,
                             from: Data(event.data.utf8)
                         )
-                        continuation.yield(dto)
+                        continuation.yield(.price(dto))
                     }
                     continuation.finish()
                 } catch {

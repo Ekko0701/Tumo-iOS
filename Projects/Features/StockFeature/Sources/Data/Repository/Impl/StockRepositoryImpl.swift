@@ -42,7 +42,7 @@ struct StockRepositoryImpl: StockRepository {
         return responseDTO.toEntity()
     }
 
-    func observeRealtimePrices(stockCodes: [String]) -> AsyncThrowingStream<StockPriceUpdate, Error> {
+    func observeRealtimePrices(stockCodes: [String]) -> AsyncThrowingStream<StockRealtimeEvent, Error> {
         let events = stockDataSource.observeRealtimePrices(stockCodes: stockCodes)
 
         return AsyncThrowingStream { continuation in
@@ -71,6 +71,17 @@ private extension StockPageResponseDTO {
             page: page,
             hasNext: hasNext
         )
+    }
+}
+
+private extension StockRealtimeEventDTO {
+    func toEntity() -> StockRealtimeEvent {
+        switch self {
+        case .connected:
+            .connected
+        case .price(let dto):
+            .priceUpdated(dto.toEntity())
+        }
     }
 }
 

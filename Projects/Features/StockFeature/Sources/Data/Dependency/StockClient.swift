@@ -19,7 +19,7 @@ struct StockClient: Sendable {
 
     var observeRealtimePrices: @Sendable (
         _ stockCodes: [String]
-    ) -> AsyncThrowingStream<StockPriceUpdate, Error>
+    ) -> AsyncThrowingStream<StockRealtimeEvent, Error>
 
     init(
         fetchStocks: @escaping @Sendable (
@@ -36,7 +36,7 @@ struct StockClient: Sendable {
         fetchStock: @escaping @Sendable (_ stockCode: String) async throws -> Stock,
         observeRealtimePrices: @escaping @Sendable (
             _ stockCodes: [String]
-        ) -> AsyncThrowingStream<StockPriceUpdate, Error>
+        ) -> AsyncThrowingStream<StockRealtimeEvent, Error>
     ) {
         self.fetchStocks = fetchStocks
         self.fetchStockRankings = fetchStockRankings

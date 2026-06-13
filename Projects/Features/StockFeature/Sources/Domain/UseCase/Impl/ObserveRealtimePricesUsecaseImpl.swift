@@ -6,7 +6,7 @@ struct ObserveRealtimePricesUsecaseImpl: ObserveRealtimePricesUsecase {
         self.stockRepository = stockRepository
     }
 
-    func execute(stockCodes: [String]) -> AsyncThrowingStream<StockPriceUpdate, Error> {
+    func execute(stockCodes: [String]) -> AsyncThrowingStream<StockRealtimeEvent, Error> {
         stockRepository.observeRealtimePrices(stockCodes: stockCodes)
     }
 }

@@ -393,13 +393,16 @@ final class StockFeatureTests: XCTestCase {
                 XCTAssertEqual(stockCodes, ["005930"])
 
                 return AsyncThrowingStream { continuation in
-                    continuation.yield(update)
+                    continuation.yield(.connected)
+                    continuation.yield(.priceUpdated(update))
                     // finish하지 않고 유지해 재연결 분기와 분리한다.
                 }
             }
         }
 
         await store.send(.startRealtimeUpdates)
+        // 첫 이벤트로 연결을 확인한다(retryCount는 이미 0이라 상태 변화 없음).
+        await store.receive(.realtimeStreamConnected)
         await store.receive(.realtimePriceReceived(update)) {
             $0.stocks = [
                 Stock(
@@ -412,6 +415,20 @@ final class StockFeatureTests: XCTestCase {
             ]
         }
         await store.send(.onDisappear)
+    }
+
+    func testStockFeatureRealtimeStreamConnectedResetsRetryCount() async {
+        // 연결이 살아있다는 신호(첫 이벤트 수신)를 받으면, 가격 데이터가 아직
+        // 안 왔더라도(장 마감 등) backoff 카운터를 리셋해야 한다.
+        let store = TestStore(
+            initialState: StockFeature.State(realtimeRetryCount: 3)
+        ) {
+            StockFeature()
+        }
+
+        await store.send(.realtimeStreamConnected) {
+            $0.realtimeRetryCount = 0
+        }
     }
 
     func testStockFeatureReconnectsAfterStreamEndsWithBackoff() async {
@@ -522,7 +539,7 @@ private struct StubStockDataSource: StockDataSource {
     }
     var observeRealtimePricesHandler: @Sendable (
         _ stockCodes: [String]
-    ) -> AsyncThrowingStream<StockPriceEventDTO, Error> = { _ in .never }
+    ) -> AsyncThrowingStream<StockRealtimeEventDTO, Error> = { _ in .never }
 
     func fetchStocks(
         market: StockMarket,
@@ -545,7 +562,7 @@ private struct StubStockDataSource: StockDataSource {
         try await fetchStockHandler(stockCode)
     }
 
-    func observeRealtimePrices(stockCodes: [String]) -> AsyncThrowingStream<StockPriceEventDTO, Error> {
+    func observeRealtimePrices(stockCodes: [String]) -> AsyncThrowingStream<StockRealtimeEventDTO, Error> {
         observeRealtimePricesHandler(stockCodes)
     }
 }
@@ -577,7 +594,7 @@ private struct StubStockRepository: StockRepository {
     }
     var observeRealtimePricesHandler: @Sendable (
         _ stockCodes: [String]
-    ) -> AsyncThrowingStream<StockPriceUpdate, Error> = { _ in .never }
+    ) -> AsyncThrowingStream<StockRealtimeEvent, Error> = { _ in .never }
 
     func fetchStocks(
         market: StockMarket,
@@ -600,7 +617,7 @@ private struct StubStockRepository: StockRepository {
         try await fetchStockHandler(stockCode)
     }
 
-    func observeRealtimePrices(stockCodes: [String]) -> AsyncThrowingStream<StockPriceUpdate, Error> {
+    func observeRealtimePrices(stockCodes: [String]) -> AsyncThrowingStream<StockRealtimeEvent, Error> {
         observeRealtimePricesHandler(stockCodes)
     }
 }

@@ -1,3 +1,3 @@
 protocol ObserveRealtimePricesUsecase: Sendable {
-    func execute(stockCodes: [String]) -> AsyncThrowingStream<StockPriceUpdate, Error>
+    func execute(stockCodes: [String]) -> AsyncThrowingStream<StockRealtimeEvent, Error>
 }

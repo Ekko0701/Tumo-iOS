@@ -86,6 +86,8 @@ public struct StockFeature {
         case stocksFailed(String)
         /// 현재 리스트의 종목들로 실시간 체결가 stream 구독을 (재)시작한다.
         case startRealtimeUpdates
+        /// SSE 연결이 살아있음을 확인했다(첫 이벤트 수신). 재연결 backoff를 리셋한다.
+        case realtimeStreamConnected
         case realtimePriceReceived(StockPriceUpdate)
         /// stream이 끊기거나(서버 timeout 포함) 실패했을 때 backoff 후 재연결한다.
         case realtimeStreamFailed
@@ -143,8 +145,13 @@ public struct StockFeature {
 
                 return .run { send in
                     do {
-                        for try await update in stockClient.observeRealtimePrices(stockCodes) {
-                            await send(.realtimePriceReceived(update))
+                        for try await event in stockClient.observeRealtimePrices(stockCodes) {
+                            switch event {
+                            case .connected:
+                                await send(.realtimeStreamConnected)
+                            case .priceUpdated(let update):
+                                await send(.realtimePriceReceived(update))
+                            }
                         }
                         // 서버 SSE timeout 등으로 정상 종료된 경우에도 재연결한다.
                         await send(.realtimeStreamFailed)
@@ -154,8 +161,12 @@ public struct StockFeature {
                 }
                 .cancellable(id: CancelID.realtimePrices, cancelInFlight: true)
 
-            case .realtimePriceReceived(let update):
+            case .realtimeStreamConnected:
+                // 연결이 살아있음을 확인했으므로(첫 이벤트 수신) 재연결 backoff를 리셋한다.
                 state.realtimeRetryCount = 0
+                return .none
+
+            case .realtimePriceReceived(let update):
                 state.stocks = state.stocks.map { stock in
                     guard stock.stockCode == update.stockCode else {
                         return stock
