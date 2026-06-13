@@ -241,6 +241,36 @@ final class StockFeatureTests: XCTestCase {
         await store.send(.onDisappear)
     }
 
+    func testStockFeatureOnAppearResumesRealtimeUpdatesWhenStocksAlreadyLoaded() async {
+        // 탭 복귀 시나리오: 이미 종목이 있으면 랭킹 API를 재호출하지 않고
+        // onDisappear에서 해제됐던 실시간 구독만 다시 시작해야 한다.
+        let stocks = [
+            Stock(
+                stockCode: "005930",
+                stockName: "삼성전자",
+                market: "KOSPI",
+                currentPrice: 75_000,
+                priceChangedAt: "2026-05-13T15:30:00"
+            )
+        ]
+        let store = TestStore(
+            initialState: StockFeature.State(stocks: stocks)
+        ) {
+            StockFeature()
+        } withDependencies: {
+            // 랭킹 API가 호출되면 테스트 실패시킨다(재로딩이 일어나면 안 됨).
+            $0.stockClient.fetchStockRankings = { _, _, _, _ in
+                XCTFail("종목이 이미 있을 때는 랭킹 API를 재호출하면 안 된다.")
+                return StockPage(stocks: [], page: 0, hasNext: false)
+            }
+            $0.stockClient.observeRealtimePrices = { _ in .never }
+        }
+
+        await store.send(.onAppear)
+        await store.receive(.startRealtimeUpdates)
+        await store.send(.onDisappear)
+    }
+
     func testStockFeatureSortOptionChangedLoadsRankingPage() async {
         let ma = Stock(
             stockCode: "000002",

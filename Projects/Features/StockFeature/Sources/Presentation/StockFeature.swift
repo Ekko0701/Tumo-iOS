@@ -99,8 +99,10 @@ public struct StockFeature {
         Reduce { state, action in
             switch action {
             case .onAppear:
+                // 이미 목록이 있으면(탭 복귀 등) 재로딩은 건너뛰되, onDisappear에서
+                // 해제됐던 실시간 구독은 다시 시작한다.
                 guard state.stocks.isEmpty else {
-                    return .none
+                    return .send(.startRealtimeUpdates)
                 }
 
                 return loadFirstPage(&state)
