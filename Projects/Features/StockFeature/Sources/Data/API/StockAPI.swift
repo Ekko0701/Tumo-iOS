@@ -7,6 +7,7 @@ enum StockAPI: TargetType {
     case rankings(market: StockMarket, type: StockRankingType, page: Int, size: Int)
     case stock(stockCode: String)
     case realtimePriceStream(stockCodes: [String])
+    case realtimeOrderBookStream(stockCode: String)
 
     var baseURL: URL {
         URL(string: "http://localhost:8080")!
@@ -25,12 +26,15 @@ enum StockAPI: TargetType {
 
         case .realtimePriceStream:
             "/api/v1/stocks/realtime/prices/stream"
+
+        case .realtimeOrderBookStream(let stockCode):
+            "/api/v1/stocks/\(stockCode)/realtime/order-book/stream"
         }
     }
 
     var method: HTTPMethod {
         switch self {
-        case .stocks, .rankings, .stock, .realtimePriceStream:
+        case .stocks, .rankings, .stock, .realtimePriceStream, .realtimeOrderBookStream:
             .get
         }
     }
@@ -58,7 +62,7 @@ enum StockAPI: TargetType {
                 encoding: .url
             )
 
-        case .stock:
+        case .stock, .realtimeOrderBookStream:
             .requestPlain
 
         case .realtimePriceStream(let stockCodes):

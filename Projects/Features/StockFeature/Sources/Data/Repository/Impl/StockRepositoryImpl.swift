@@ -62,6 +62,35 @@ struct StockRepositoryImpl: StockRepository {
             }
         }
     }
+
+    func observeOrderBook(stockCode: String) -> AsyncThrowingStream<StockOrderBookEvent, Error> {
+        let events = stockDataSource.observeOrderBook(stockCode: stockCode)
+
+        return AsyncThrowingStream { continuation in
+            let task = _Concurrency.Task {
+                do {
+                    for try await eventDTO in events {
+                        continuation.yield(eventDTO.toEntity())
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+
+            continuation.onTermination = { _ in
+                task.cancel()
+            }
+        }
+    }
+
+    func fetchHolding(stockCode: String) async throws -> StockHolding? {
+        let responseDTO = try await stockDataSource.fetchPortfolio()
+
+        return responseDTO.holdings
+            .first { $0.stockCode == stockCode }
+            .map { $0.toEntity() }
+    }
 }
 
 private extension StockPageResponseDTO {
@@ -82,6 +111,43 @@ private extension StockRealtimeEventDTO {
         case .price(let dto):
             .priceUpdated(dto.toEntity())
         }
+    }
+}
+
+private extension StockOrderBookEventDTO {
+    func toEntity() -> StockOrderBookEvent {
+        switch self {
+        case .connected:
+            .connected
+        case .orderBook(let dto):
+            .updated(dto.toEntity())
+        }
+    }
+}
+
+private extension StockOrderBookPayloadDTO {
+    func toEntity() -> StockOrderBook {
+        StockOrderBook(
+            stockCode: orderBook.stockCode,
+            askLevels: orderBook.askLevels.map { StockOrderBookLevel(price: $0.price, volume: $0.volume) },
+            bidLevels: orderBook.bidLevels.map { StockOrderBookLevel(price: $0.price, volume: $0.volume) },
+            orderBookChangedAt: orderBook.orderBookChangedAt
+        )
+    }
+}
+
+private extension PortfolioResponseDTO.PortfolioHoldingDTO {
+    func toEntity() -> StockHolding {
+        StockHolding(
+            stockCode: stockCode,
+            stockName: stockName,
+            quantity: quantity,
+            averagePrice: averagePrice,
+            currentPrice: currentPrice,
+            evaluationAmount: evaluationAmount,
+            profitAmount: profitAmount,
+            profitRate: profitRate
+        )
     }
 }
 

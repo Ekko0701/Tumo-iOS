@@ -4,20 +4,29 @@ import TumoNetwork
 enum StockAssembly {
     static func live() -> StockClient {
         let provider: Provider<StockAPI> = TumoProviderFactory.live.authorizedProvider()
+        let portfolioProvider: Provider<PortfolioAPI> = TumoProviderFactory.live.authorizedProvider()
         let sseClient = TumoProviderFactory.live.authorizedSseClient()
 
-        let stockDataSource = StockDataSourceImpl(provider: provider, sseClient: sseClient)
+        let stockDataSource = StockDataSourceImpl(
+            provider: provider,
+            portfolioProvider: portfolioProvider,
+            sseClient: sseClient
+        )
         let stockRepository = StockRepositoryImpl(stockDataSource: stockDataSource)
         let fetchStocksUsecase = FetchStocksUsecaseImpl(stockRepository: stockRepository)
         let fetchStockRankingsUsecase = FetchStockRankingsUsecaseImpl(stockRepository: stockRepository)
         let fetchStockUsecase = FetchStockUsecaseImpl(stockRepository: stockRepository)
         let observeRealtimePricesUsecase = ObserveRealtimePricesUsecaseImpl(stockRepository: stockRepository)
+        let observeOrderBookUsecase = ObserveOrderBookUsecaseImpl(stockRepository: stockRepository)
+        let fetchHoldingUsecase = FetchHoldingUsecaseImpl(stockRepository: stockRepository)
 
         return StockClient.live(
             fetchStocksUsecase: fetchStocksUsecase,
             fetchStockRankingsUsecase: fetchStockRankingsUsecase,
             fetchStockUsecase: fetchStockUsecase,
-            observeRealtimePricesUsecase: observeRealtimePricesUsecase
+            observeRealtimePricesUsecase: observeRealtimePricesUsecase,
+            observeOrderBookUsecase: observeOrderBookUsecase,
+            fetchHoldingUsecase: fetchHoldingUsecase
         )
     }
 }

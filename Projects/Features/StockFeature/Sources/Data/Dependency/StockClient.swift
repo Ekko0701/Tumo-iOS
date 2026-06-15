@@ -21,6 +21,12 @@ struct StockClient: Sendable {
         _ stockCodes: [String]
     ) -> AsyncThrowingStream<StockRealtimeEvent, Error>
 
+    var observeOrderBook: @Sendable (
+        _ stockCode: String
+    ) -> AsyncThrowingStream<StockOrderBookEvent, Error>
+
+    var fetchHolding: @Sendable (_ stockCode: String) async throws -> StockHolding?
+
     init(
         fetchStocks: @escaping @Sendable (
             _ market: StockMarket,
@@ -36,12 +42,18 @@ struct StockClient: Sendable {
         fetchStock: @escaping @Sendable (_ stockCode: String) async throws -> Stock,
         observeRealtimePrices: @escaping @Sendable (
             _ stockCodes: [String]
-        ) -> AsyncThrowingStream<StockRealtimeEvent, Error>
+        ) -> AsyncThrowingStream<StockRealtimeEvent, Error>,
+        observeOrderBook: @escaping @Sendable (
+            _ stockCode: String
+        ) -> AsyncThrowingStream<StockOrderBookEvent, Error>,
+        fetchHolding: @escaping @Sendable (_ stockCode: String) async throws -> StockHolding?
     ) {
         self.fetchStocks = fetchStocks
         self.fetchStockRankings = fetchStockRankings
         self.fetchStock = fetchStock
         self.observeRealtimePrices = observeRealtimePrices
+        self.observeOrderBook = observeOrderBook
+        self.fetchHolding = fetchHolding
     }
 }
 
@@ -50,7 +62,9 @@ extension StockClient {
         fetchStocksUsecase: any FetchStocksUsecase,
         fetchStockRankingsUsecase: any FetchStockRankingsUsecase,
         fetchStockUsecase: any FetchStockUsecase,
-        observeRealtimePricesUsecase: any ObserveRealtimePricesUsecase
+        observeRealtimePricesUsecase: any ObserveRealtimePricesUsecase,
+        observeOrderBookUsecase: any ObserveOrderBookUsecase,
+        fetchHoldingUsecase: any FetchHoldingUsecase
     ) -> StockClient {
         StockClient(
             fetchStocks: { market, page, size in
@@ -69,6 +83,12 @@ extension StockClient {
             },
             observeRealtimePrices: { stockCodes in
                 observeRealtimePricesUsecase.execute(stockCodes: stockCodes)
+            },
+            observeOrderBook: { stockCode in
+                observeOrderBookUsecase.execute(stockCode: stockCode)
+            },
+            fetchHolding: { stockCode in
+                try await fetchHoldingUsecase.execute(stockCode: stockCode)
             }
         )
     }
