@@ -91,6 +91,7 @@ public struct StockDetailFeature {
     private enum CancelID {
         case headerPrice
         case orderBook
+        case holding
     }
 
     public var body: some ReducerOf<Self> {
@@ -106,7 +107,8 @@ public struct StockDetailFeature {
             case .onDisappear:
                 return .merge(
                     .cancel(id: CancelID.headerPrice),
-                    .cancel(id: CancelID.orderBook)
+                    .cancel(id: CancelID.orderBook),
+                    .cancel(id: CancelID.holding)
                 )
 
             case .tabSelected(let tab):
@@ -219,6 +221,7 @@ public struct StockDetailFeature {
             case .loadHolding:
                 let stockCode = state.stock.stockCode
                 let stockClient = stockClient
+                state.holdingErrorMessage = nil
 
                 return .run { send in
                     do {
@@ -228,6 +231,7 @@ public struct StockDetailFeature {
                         await send(.holdingFailed)
                     }
                 }
+                .cancellable(id: CancelID.holding, cancelInFlight: true)
 
             case .holdingLoaded(let holding):
                 state.holding = holding
