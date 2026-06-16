@@ -506,6 +506,360 @@ final class StockFeatureTests: XCTestCase {
             $0.errorMessage = "종목 랭킹을 불러오지 못했습니다."
         }
     }
+
+    // MARK: - 호가 / 보유 매핑
+
+    func testStockRepositoryMapsOrderBookEventDTOToEntity() async throws {
+        let payload = StockOrderBookPayloadDTO(
+            orderBook: StockOrderBookPayloadDTO.OrderBookDTO(
+                stockCode: "005930",
+                askLevels: [
+                    StockOrderBookPayloadDTO.OrderBookDTO.LevelDTO(price: 75_100, volume: 10),
+                    StockOrderBookPayloadDTO.OrderBookDTO.LevelDTO(price: 75_200, volume: 20)
+                ],
+                bidLevels: [
+                    StockOrderBookPayloadDTO.OrderBookDTO.LevelDTO(price: 75_000, volume: 30)
+                ],
+                orderBookChangedAt: "2026-05-13T15:30:00"
+            ),
+            provider: "KIS",
+            receivedAt: "2026-05-13T15:30:00.123"
+        )
+        let repository = StockRepositoryImpl(
+            stockDataSource: StubStockDataSource(
+                observeOrderBookHandler: { stockCode in
+                    XCTAssertEqual(stockCode, "005930")
+
+                    return AsyncThrowingStream { continuation in
+                        continuation.yield(.connected)
+                        continuation.yield(.orderBook(payload))
+                        continuation.finish()
+                    }
+                }
+            )
+        )
+
+        var events: [StockOrderBookEvent] = []
+        for try await event in repository.observeOrderBook(stockCode: "005930") {
+            events.append(event)
+        }
+
+        XCTAssertEqual(
+            events,
+            [
+                .connected,
+                .updated(
+                    StockOrderBook(
+                        stockCode: "005930",
+                        askLevels: [
+                            StockOrderBookLevel(price: 75_100, volume: 10),
+                            StockOrderBookLevel(price: 75_200, volume: 20)
+                        ],
+                        bidLevels: [
+                            StockOrderBookLevel(price: 75_000, volume: 30)
+                        ],
+                        orderBookChangedAt: "2026-05-13T15:30:00"
+                    )
+                )
+            ]
+        )
+    }
+
+    func testStockRepositoryReturnsHoldingMatchingStockCode() async throws {
+        let repository = StockRepositoryImpl(
+            stockDataSource: StubStockDataSource(
+                fetchPortfolioHandler: {
+                    PortfolioResponseDTO(
+                        holdings: [
+                            PortfolioResponseDTO.PortfolioHoldingDTO(
+                                stockCode: "005930",
+                                stockName: "삼성전자",
+                                quantity: 10,
+                                averagePrice: 70_000,
+                                currentPrice: 75_000,
+                                evaluationAmount: 750_000,
+                                profitAmount: 50_000,
+                                profitRate: 7.14
+                            ),
+                            PortfolioResponseDTO.PortfolioHoldingDTO(
+                                stockCode: "000660",
+                                stockName: "SK하이닉스",
+                                quantity: 5,
+                                averagePrice: 180_000,
+                                currentPrice: 175_000,
+                                evaluationAmount: 875_000,
+                                profitAmount: -25_000,
+                                profitRate: -2.78
+                            )
+                        ]
+                    )
+                }
+            )
+        )
+
+        let holding = try await repository.fetchHolding(stockCode: "000660")
+
+        XCTAssertEqual(
+            holding,
+            StockHolding(
+                stockCode: "000660",
+                stockName: "SK하이닉스",
+                quantity: 5,
+                averagePrice: 180_000,
+                currentPrice: 175_000,
+                evaluationAmount: 875_000,
+                profitAmount: -25_000,
+                profitRate: -2.78
+            )
+        )
+    }
+
+    func testStockRepositoryReturnsNilWhenStockNotHeld() async throws {
+        let repository = StockRepositoryImpl(
+            stockDataSource: StubStockDataSource(
+                fetchPortfolioHandler: {
+                    PortfolioResponseDTO(
+                        holdings: [
+                            PortfolioResponseDTO.PortfolioHoldingDTO(
+                                stockCode: "005930",
+                                stockName: "삼성전자",
+                                quantity: 10,
+                                averagePrice: 70_000,
+                                currentPrice: 75_000,
+                                evaluationAmount: 750_000,
+                                profitAmount: 50_000,
+                                profitRate: 7.14
+                            )
+                        ]
+                    )
+                }
+            )
+        )
+
+        let holding = try await repository.fetchHolding(stockCode: "999999")
+
+        XCTAssertNil(holding)
+    }
+
+    // MARK: - StockDetailFeature
+
+    private static let sampleStock = Stock(
+        stockCode: "005930",
+        stockName: "삼성전자",
+        market: "KOSPI",
+        currentPrice: 75_000,
+        priceChangedAt: "2026-05-13T15:30:00"
+    )
+
+    func testStockDetailOnAppearStartsHeaderPriceStream() async {
+        let store = TestStore(
+            initialState: StockDetailFeature.State(stock: Self.sampleStock)
+        ) {
+            StockDetailFeature()
+        } withDependencies: {
+            $0.stockClient.observeRealtimePrices = { stockCodes in
+                XCTAssertEqual(stockCodes, ["005930"])
+
+                return AsyncThrowingStream { continuation in
+                    continuation.yield(.connected)
+                }
+            }
+        }
+
+        await store.send(.onAppear)
+        await store.receive(.startPriceStream)
+        await store.receive(.priceStreamConnected)
+        await store.send(.onDisappear)
+    }
+
+    func testStockDetailPriceReceivedUpdatesHeader() async {
+        let store = TestStore(
+            initialState: StockDetailFeature.State(stock: Self.sampleStock)
+        ) {
+            StockDetailFeature()
+        }
+        let update = StockPriceUpdate(
+            stockCode: "005930",
+            currentPrice: 76_000,
+            changePrice: 1_000,
+            changeRate: Decimal(string: "1.33"),
+            tradeVolume: 2_000_000,
+            tradeAmount: 152_000_000_000,
+            priceChangedAt: "2026-05-13T15:31:00"
+        )
+
+        await store.send(.priceReceived(update)) {
+            $0.stock = Stock(
+                stockCode: "005930",
+                stockName: "삼성전자",
+                market: "KOSPI",
+                currentPrice: 76_000,
+                changePrice: 1_000,
+                changeRate: Decimal(string: "1.33"),
+                tradeVolume: 2_000_000,
+                tradeAmount: 152_000_000_000,
+                priceChangedAt: "2026-05-13T15:31:00"
+            )
+        }
+
+        // 헤더와 다른 종목 코드의 가격은 무시한다.
+        let unrelated = StockPriceUpdate(
+            stockCode: "999999",
+            currentPrice: 1,
+            priceChangedAt: "2026-05-13T15:31:00"
+        )
+        await store.send(.priceReceived(unrelated))
+    }
+
+    func testStockDetailOrderBookTabSubscribesAndReceivesUpdates() async {
+        let orderBook = StockOrderBook(
+            stockCode: "005930",
+            askLevels: [StockOrderBookLevel(price: 75_100, volume: 10)],
+            bidLevels: [StockOrderBookLevel(price: 75_000, volume: 20)],
+            orderBookChangedAt: "2026-05-13T15:30:00"
+        )
+        let store = TestStore(
+            initialState: StockDetailFeature.State(stock: Self.sampleStock)
+        ) {
+            StockDetailFeature()
+        } withDependencies: {
+            $0.stockClient.observeOrderBook = { stockCode in
+                XCTAssertEqual(stockCode, "005930")
+
+                return AsyncThrowingStream { continuation in
+                    continuation.yield(.connected)
+                    continuation.yield(.updated(orderBook))
+                }
+            }
+        }
+
+        await store.send(.tabSelected(.orderBook)) {
+            $0.selectedTab = .orderBook
+        }
+        await store.receive(.startOrderBookStream)
+        await store.receive(.orderBookStreamConnected)
+        await store.receive(.orderBookReceived(orderBook)) {
+            $0.orderBook = orderBook
+        }
+        await store.send(.onDisappear)
+    }
+
+    func testStockDetailOrderBookStreamConnectedResetsRetryCount() async {
+        let store = TestStore(
+            initialState: StockDetailFeature.State(stock: Self.sampleStock, orderBookRetryCount: 3)
+        ) {
+            StockDetailFeature()
+        }
+
+        await store.send(.orderBookStreamConnected) {
+            $0.orderBookRetryCount = 0
+        }
+    }
+
+    func testStockDetailReconnectsOrderBookAfterStreamEndsWhileOnTab() async {
+        let clock = TestClock()
+        let connectionCount = LockIsolated(0)
+        let store = TestStore(
+            initialState: StockDetailFeature.State(stock: Self.sampleStock, selectedTab: .orderBook)
+        ) {
+            StockDetailFeature()
+        } withDependencies: {
+            $0.continuousClock = clock
+            $0.stockClient.observeOrderBook = { _ in
+                connectionCount.withValue { $0 += 1 }
+
+                if connectionCount.value == 1 {
+                    return AsyncThrowingStream { $0.finish() }
+                }
+
+                return .never
+            }
+        }
+
+        await store.send(.startOrderBookStream)
+        await store.receive(.orderBookStreamFailed) {
+            $0.orderBookRetryCount = 1
+        }
+
+        await clock.advance(by: .seconds(1))
+        await store.receive(.startOrderBookStream)
+        XCTAssertEqual(connectionCount.value, 2)
+
+        await store.send(.onDisappear)
+    }
+
+    func testStockDetailDoesNotReconnectOrderBookAfterLeavingTab() async {
+        // 호가 탭을 벗어난 뒤 stream이 끊겨도 재연결하지 않아야 한다.
+        let store = TestStore(
+            initialState: StockDetailFeature.State(stock: Self.sampleStock, selectedTab: .chart)
+        ) {
+            StockDetailFeature()
+        }
+
+        await store.send(.orderBookStreamFailed)
+    }
+
+    func testStockDetailLoadsHoldingOnMyStockTab() async {
+        let holding = StockHolding(
+            stockCode: "005930",
+            stockName: "삼성전자",
+            quantity: 10,
+            averagePrice: 70_000,
+            currentPrice: 75_000,
+            evaluationAmount: 750_000,
+            profitAmount: 50_000,
+            profitRate: 7.14
+        )
+        let store = TestStore(
+            initialState: StockDetailFeature.State(stock: Self.sampleStock)
+        ) {
+            StockDetailFeature()
+        } withDependencies: {
+            $0.stockClient.fetchHolding = { stockCode in
+                XCTAssertEqual(stockCode, "005930")
+
+                return holding
+            }
+        }
+
+        await store.send(.tabSelected(.myStock)) {
+            $0.selectedTab = .myStock
+        }
+        await store.receive(.loadHolding)
+        await store.receive(.holdingLoaded(holding)) {
+            $0.holding = holding
+            $0.isHoldingLoaded = true
+        }
+    }
+
+    func testStockDetailDoesNotReloadHoldingWhenAlreadyLoaded() async {
+        let store = TestStore(
+            initialState: StockDetailFeature.State(stock: Self.sampleStock, isHoldingLoaded: true)
+        ) {
+            StockDetailFeature()
+        } withDependencies: {
+            $0.stockClient.fetchHolding = { _ in
+                XCTFail("보유 정보가 이미 로드됐으면 재조회하면 안 된다.")
+                return nil
+            }
+        }
+
+        await store.send(.tabSelected(.myStock)) {
+            $0.selectedTab = .myStock
+        }
+    }
+
+    func testStockDetailHoldingFailedSetsErrorMessage() async {
+        let store = TestStore(
+            initialState: StockDetailFeature.State(stock: Self.sampleStock)
+        ) {
+            StockDetailFeature()
+        }
+
+        await store.send(.holdingFailed) {
+            $0.holdingErrorMessage = "보유 정보를 불러오지 못했습니다."
+        }
+    }
 }
 
 private struct StubStockDataSource: StockDataSource {
@@ -540,6 +894,12 @@ private struct StubStockDataSource: StockDataSource {
     var observeRealtimePricesHandler: @Sendable (
         _ stockCodes: [String]
     ) -> AsyncThrowingStream<StockRealtimeEventDTO, Error> = { _ in .never }
+    var observeOrderBookHandler: @Sendable (
+        _ stockCode: String
+    ) -> AsyncThrowingStream<StockOrderBookEventDTO, Error> = { _ in .never }
+    var fetchPortfolioHandler: @Sendable () async throws -> PortfolioResponseDTO = {
+        PortfolioResponseDTO(holdings: [])
+    }
 
     func fetchStocks(
         market: StockMarket,
@@ -564,6 +924,14 @@ private struct StubStockDataSource: StockDataSource {
 
     func observeRealtimePrices(stockCodes: [String]) -> AsyncThrowingStream<StockRealtimeEventDTO, Error> {
         observeRealtimePricesHandler(stockCodes)
+    }
+
+    func observeOrderBook(stockCode: String) -> AsyncThrowingStream<StockOrderBookEventDTO, Error> {
+        observeOrderBookHandler(stockCode)
+    }
+
+    func fetchPortfolio() async throws -> PortfolioResponseDTO {
+        try await fetchPortfolioHandler()
     }
 }
 
@@ -595,6 +963,10 @@ private struct StubStockRepository: StockRepository {
     var observeRealtimePricesHandler: @Sendable (
         _ stockCodes: [String]
     ) -> AsyncThrowingStream<StockRealtimeEvent, Error> = { _ in .never }
+    var observeOrderBookHandler: @Sendable (
+        _ stockCode: String
+    ) -> AsyncThrowingStream<StockOrderBookEvent, Error> = { _ in .never }
+    var fetchHoldingHandler: @Sendable (_ stockCode: String) async throws -> StockHolding? = { _ in nil }
 
     func fetchStocks(
         market: StockMarket,
@@ -619,5 +991,13 @@ private struct StubStockRepository: StockRepository {
 
     func observeRealtimePrices(stockCodes: [String]) -> AsyncThrowingStream<StockRealtimeEvent, Error> {
         observeRealtimePricesHandler(stockCodes)
+    }
+
+    func observeOrderBook(stockCode: String) -> AsyncThrowingStream<StockOrderBookEvent, Error> {
+        observeOrderBookHandler(stockCode)
+    }
+
+    func fetchHolding(stockCode: String) async throws -> StockHolding? {
+        try await fetchHoldingHandler(stockCode)
     }
 }
