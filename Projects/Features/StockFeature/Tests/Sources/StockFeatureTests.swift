@@ -507,6 +507,25 @@ final class StockFeatureTests: XCTestCase {
         }
     }
 
+    func testStockFeatureStockTappedSetsDetailState() async {
+        let samsung = Stock(
+            stockCode: "005930",
+            stockName: "삼성전자",
+            market: "KOSPI",
+            currentPrice: 75_000,
+            priceChangedAt: "2026-05-13T15:30:00"
+        )
+        let store = TestStore(
+            initialState: StockFeature.State(stocks: [samsung])
+        ) {
+            StockFeature()
+        }
+
+        await store.send(.stockTapped(samsung)) {
+            $0.detail = StockDetailFeature.State(stock: samsung)
+        }
+    }
+
     // MARK: - 호가 / 보유 매핑
 
     func testStockRepositoryMapsOrderBookEventDTOToEntity() async throws {

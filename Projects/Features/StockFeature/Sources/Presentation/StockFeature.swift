@@ -52,19 +52,23 @@ public struct StockFeature {
         public var errorMessage: String?
         /// 실시간 stream 연속 실패 횟수. 재연결 backoff 계산에 사용한다.
         public var realtimeRetryCount = 0
+        /// 종목 행을 탭하면 띄우는 상세 화면 상태.
+        @Presents public var detail: StockDetailFeature.State?
 
         public init(
             stocks: [Stock] = [],
             sortOption: StockSortOption = .tradeAmount,
             isLoading: Bool = false,
             errorMessage: String? = nil,
-            realtimeRetryCount: Int = 0
+            realtimeRetryCount: Int = 0,
+            detail: StockDetailFeature.State? = nil
         ) {
             self.stocks = stocks
             self.sortOption = sortOption
             self.isLoading = isLoading
             self.errorMessage = errorMessage
             self.realtimeRetryCount = realtimeRetryCount
+            self.detail = detail
         }
 
         var isEmptyStateVisible: Bool {
@@ -91,6 +95,10 @@ public struct StockFeature {
         case realtimePriceReceived(StockPriceUpdate)
         /// stream이 끊기거나(서버 timeout 포함) 실패했을 때 backoff 후 재연결한다.
         case realtimeStreamFailed
+        /// 종목 행을 탭해 상세 화면을 띄운다.
+        case stockTapped(Stock)
+        /// 상세 화면(@Presents) 액션.
+        case detail(PresentationAction<StockDetailFeature.Action>)
     }
 
     private enum CancelID {
@@ -199,7 +207,18 @@ public struct StockFeature {
 
             case .onDisappear:
                 return .cancel(id: CancelID.realtimePrices)
+
+            case .stockTapped(let stock):
+                // 리스트의 Stock 전체를 넘겨 헤더를 즉시 표시한다(fetch 대기 없음).
+                state.detail = StockDetailFeature.State(stock: stock)
+                return .none
+
+            case .detail:
+                return .none
             }
+        }
+        .ifLet(\.$detail, action: \.detail) {
+            StockDetailFeature()
         }
     }
 

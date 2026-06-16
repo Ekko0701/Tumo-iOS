@@ -14,7 +14,9 @@ public struct StockView: View {
     }
 
     public var body: some View {
-        ZStack {
+        @Bindable var store = store
+
+        return ZStack {
             Color.tumoCanvas
                 .ignoresSafeArea()
 
@@ -41,6 +43,11 @@ public struct StockView: View {
         .onDisappear {
             store.send(.onDisappear)
         }
+        .navigationDestination(
+            item: $store.scope(state: \.detail, action: \.detail)
+        ) { detailStore in
+            StockDetailView(store: detailStore)
+        }
     }
 
     @ViewBuilder
@@ -59,7 +66,12 @@ public struct StockView: View {
             let stocks = store.displayedStocks
 
             ForEach(Array(stocks.enumerated()), id: \.element.id) { index, stock in
-                StockRow(rank: index + 1, stock: stock, sortOption: store.sortOption)
+                Button {
+                    store.send(.stockTapped(stock))
+                } label: {
+                    StockRow(rank: index + 1, stock: stock, sortOption: store.sortOption)
+                }
+                .buttonStyle(.plain)
 
                 if index < stocks.count - 1 {
                     Rectangle()
