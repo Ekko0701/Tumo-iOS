@@ -2,9 +2,12 @@ import SwiftUI
 
 // MARK: - Design Tokens (DESIGN.md, with Korean up/down convention)
 
-/// StockFeature 화면들이 공유하는 색 토큰.
-/// StockView, StockDetailView 등에서 함께 사용한다.
-extension Color {
+/// 앱 전역에서 공유하는 Tumo 색 토큰.
+///
+/// 현재는 코드 리터럴로 정의돼 있다. 다크모드/고대비/P3 지원이 필요해지면
+/// 본문을 에셋 카탈로그 접근자(`CoreDesignSystemAsset.tumoUp.swiftUIColor` 등)로
+/// 교체한다. 그 경우에도 `Color.tumoX` 호출부는 그대로 유지된다.
+public extension Color {
     static let tumoBlue = Color(red: 0, green: 82.0 / 255.0, blue: 1)
     static let tumoInk = Color(red: 10.0 / 255.0, green: 11.0 / 255.0, blue: 13.0 / 255.0)
     static let tumoBody = Color(red: 91.0 / 255.0, green: 97.0 / 255.0, blue: 110.0 / 255.0)
