@@ -22,4 +22,12 @@ protocol StockDataSource: Sendable {
 
     /// 사용자의 포트폴리오(보유 종목)를 조회한다.
     func fetchPortfolio() async throws -> PortfolioResponseDTO
+
+    /// 지정 종목의 캔들(차트) 목록을 조회한다. `from`/`to`는 `yyyyMMdd` 형식.
+    func fetchCandles(
+        stockCode: String,
+        interval: CandleInterval,
+        from: String,
+        to: String
+    ) async throws -> StockCandleListResponseDTO
 }

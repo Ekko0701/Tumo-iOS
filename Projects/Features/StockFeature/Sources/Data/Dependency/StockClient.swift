@@ -27,6 +27,13 @@ struct StockClient: Sendable {
 
     var fetchHolding: @Sendable (_ stockCode: String) async throws -> StockHolding?
 
+    var fetchCandles: @Sendable (
+        _ stockCode: String,
+        _ interval: CandleInterval,
+        _ from: String,
+        _ to: String
+    ) async throws -> [StockCandle]
+
     init(
         fetchStocks: @escaping @Sendable (
             _ market: StockMarket,
@@ -46,7 +53,13 @@ struct StockClient: Sendable {
         observeOrderBook: @escaping @Sendable (
             _ stockCode: String
         ) -> AsyncThrowingStream<StockOrderBookEvent, Error>,
-        fetchHolding: @escaping @Sendable (_ stockCode: String) async throws -> StockHolding?
+        fetchHolding: @escaping @Sendable (_ stockCode: String) async throws -> StockHolding?,
+        fetchCandles: @escaping @Sendable (
+            _ stockCode: String,
+            _ interval: CandleInterval,
+            _ from: String,
+            _ to: String
+        ) async throws -> [StockCandle]
     ) {
         self.fetchStocks = fetchStocks
         self.fetchStockRankings = fetchStockRankings
@@ -54,6 +67,7 @@ struct StockClient: Sendable {
         self.observeRealtimePrices = observeRealtimePrices
         self.observeOrderBook = observeOrderBook
         self.fetchHolding = fetchHolding
+        self.fetchCandles = fetchCandles
     }
 }
 
@@ -64,7 +78,8 @@ extension StockClient {
         fetchStockUsecase: any FetchStockUsecase,
         observeRealtimePricesUsecase: any ObserveRealtimePricesUsecase,
         observeOrderBookUsecase: any ObserveOrderBookUsecase,
-        fetchHoldingUsecase: any FetchHoldingUsecase
+        fetchHoldingUsecase: any FetchHoldingUsecase,
+        fetchCandlesUsecase: any FetchCandlesUsecase
     ) -> StockClient {
         StockClient(
             fetchStocks: { market, page, size in
@@ -89,6 +104,14 @@ extension StockClient {
             },
             fetchHolding: { stockCode in
                 try await fetchHoldingUsecase.execute(stockCode: stockCode)
+            },
+            fetchCandles: { stockCode, interval, from, to in
+                try await fetchCandlesUsecase.execute(
+                    stockCode: stockCode,
+                    interval: interval,
+                    from: from,
+                    to: to
+                )
             }
         )
     }

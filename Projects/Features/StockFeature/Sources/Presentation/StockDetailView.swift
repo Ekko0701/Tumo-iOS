@@ -1,3 +1,4 @@
+import Charts
 import ComposableArchitecture
 import CoreDesignSystem
 import Foundation
@@ -136,7 +137,14 @@ public struct StockDetailView: View {
     private var tabContent: some View {
         switch store.selectedTab {
         case .chart:
-            ChartPlaceholder()
+            ChartContent(
+                candles: store.candles,
+                selectedInterval: store.selectedInterval,
+                isLoading: store.isCandleLoading,
+                errorMessage: store.candleErrorMessage,
+                onSelectInterval: { store.send(.intervalSelected($0)) },
+                onRetry: { store.send(.loadCandles) }
+            )
 
         case .orderBook:
             OrderBookContent(orderBook: store.orderBook, basePrice: store.stock.currentPrice)
@@ -188,24 +196,127 @@ private struct StockDetailSegment: View {
 
 // MARK: - Chart
 
-private struct ChartPlaceholder: View {
+private struct ChartContent: View {
+    let candles: [StockCandle]
+    let selectedInterval: CandleInterval
+    let isLoading: Bool
+    let errorMessage: String?
+    let onSelectInterval: (CandleInterval) -> Void
+    let onRetry: () -> Void
+
     var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "chart.xyaxis.line")
-                .font(.system(size: 36, weight: .regular))
-                .foregroundStyle(Color.tumoMutedSoft)
-
-            Text("차트는 준비 중입니다")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(Color.tumoBody)
-
-            Text("시세 차트 API 연동 후 제공될 예정입니다.")
-                .font(.system(size: 13, weight: .regular))
-                .foregroundStyle(Color.tumoMuted)
-                .multilineTextAlignment(.center)
+        VStack(spacing: 0) {
+            IntervalSegment(selected: selectedInterval, onSelect: onSelectInterval)
+            chartBody
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(.horizontal, 24)
+    }
+
+    @ViewBuilder
+    private var chartBody: some View {
+        if let errorMessage {
+            VStack(spacing: 12) {
+                Text(errorMessage)
+                    .font(.system(size: 14, weight: .regular))
+                    .foregroundStyle(Color.tumoMuted)
+
+                Button(action: onRetry) {
+                    Text("다시 시도")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color.tumoBlue)
+                }
+                .buttonStyle(.plain)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.horizontal, 24)
+        } else if candles.isEmpty {
+            if isLoading {
+                ProgressView()
+                    .tint(Color.tumoMuted)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                Text("표시할 데이터가 없습니다")
+                    .font(.system(size: 14, weight: .regular))
+                    .foregroundStyle(Color.tumoMuted)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        } else {
+            CandleChart(candles: candles)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 16)
+        }
+    }
+}
+
+private struct IntervalSegment: View {
+    let selected: CandleInterval
+    let onSelect: (CandleInterval) -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ForEach(CandleInterval.allCases) { interval in
+                let isSelected = interval == selected
+
+                Button {
+                    onSelect(interval)
+                } label: {
+                    Text(interval.title)
+                        .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                        .foregroundStyle(isSelected ? Color.tumoInk : Color.tumoMuted)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 7)
+                        .background(isSelected ? Color.tumoSurfaceStrong : Color.clear, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 10)
+    }
+}
+
+private struct CandleChart: View {
+    let candles: [StockCandle]
+
+    var body: some View {
+        Chart(candles) { candle in
+            // 고가~저가 꼬리.
+            RuleMark(
+                x: .value("시각", candle.candleTime),
+                yStart: .value("저가", candle.lowPrice),
+                yEnd: .value("고가", candle.highPrice)
+            )
+            .foregroundStyle(color(for: candle))
+
+            // 시가~종가 몸통.
+            RectangleMark(
+                x: .value("시각", candle.candleTime),
+                yStart: .value("시가", candle.openPrice),
+                yEnd: .value("종가", candle.closePrice),
+                width: .ratio(0.6)
+            )
+            .foregroundStyle(color(for: candle))
+        }
+        .chartYScale(domain: yDomain)
+        .chartXAxis {
+            AxisMarks(values: .automatic(desiredCount: 4))
+        }
+    }
+
+    private func color(for candle: StockCandle) -> Color {
+        candle.closePrice >= candle.openPrice ? Color.tumoUp : Color.tumoDown
+    }
+
+    private var yDomain: ClosedRange<Int> {
+        let lows = candles.map(\.lowPrice)
+        let highs = candles.map(\.highPrice)
+
+        guard let minLow = lows.min(), let maxHigh = highs.max() else {
+            return 0 ... 1
+        }
+
+        // 위아래 약간의 여백을 둬 캔들이 가장자리에 붙지 않게 한다.
+        let padding = max(1, (maxHigh - minLow) / 20)
+        return (minLow - padding) ... (maxHigh + padding)
     }
 }
 

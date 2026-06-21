@@ -672,8 +672,14 @@ final class StockFeatureTests: XCTestCase {
     )
 
     func testStockDetailOnAppearStartsHeaderPriceStream() async {
+        // 차트 탭은 onAppear에서 캔들도 로드하므로, 가격 스트림만 격리해 검증하려고
+        // 비동기 부수효과가 없는 탭(보유 로드 완료된 MY주식)에서 시작한다.
         let store = TestStore(
-            initialState: StockDetailFeature.State(stock: Self.sampleStock)
+            initialState: StockDetailFeature.State(
+                stock: Self.sampleStock,
+                selectedTab: .myStock,
+                isHoldingLoaded: true
+            )
         ) {
             StockDetailFeature()
         } withDependencies: {
@@ -880,6 +886,167 @@ final class StockFeatureTests: XCTestCase {
             $0.holdingErrorMessage = "보유 정보를 불러오지 못했습니다."
         }
     }
+
+    // MARK: - Candle (Chart)
+
+    func testStockRepositoryMapsCandleDTOToEntityWithKSTDate() async throws {
+        let repository = StockRepositoryImpl(
+            stockDataSource: StubStockDataSource(
+                fetchCandlesHandler: { stockCode, interval, from, to in
+                    XCTAssertEqual(stockCode, "005930")
+                    XCTAssertEqual(interval, .day)
+                    XCTAssertEqual(from, "20250101")
+                    XCTAssertEqual(to, "20250131")
+
+                    return StockCandleListResponseDTO(
+                        stockCode: "005930",
+                        interval: "DAY",
+                        candles: [
+                            StockCandleResponseDTO(
+                                candleTime: "2025-06-16T09:01:00",
+                                openPrice: 53_000,
+                                highPrice: 53_800,
+                                lowPrice: 52_600,
+                                closePrice: 53_400,
+                                tradeVolume: 12_345_678,
+                                tradeAmount: 658_000_000_000
+                            )
+                        ]
+                    )
+                }
+            )
+        )
+
+        let candles = try await repository.fetchCandles(
+            stockCode: "005930",
+            interval: .day,
+            from: "20250101",
+            to: "20250131"
+        )
+
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "Asia/Seoul")
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+        let expectedTime = formatter.date(from: "2025-06-16T09:01:00")
+
+        XCTAssertEqual(candles.count, 1)
+        XCTAssertEqual(candles.first?.candleTime, expectedTime)
+        XCTAssertEqual(candles.first?.openPrice, 53_000)
+        XCTAssertEqual(candles.first?.highPrice, 53_800)
+        XCTAssertEqual(candles.first?.lowPrice, 52_600)
+        XCTAssertEqual(candles.first?.closePrice, 53_400)
+        XCTAssertEqual(candles.first?.tradeVolume, 12_345_678)
+        XCTAssertEqual(candles.first?.tradeAmount, 658_000_000_000)
+    }
+
+    func testCandleIntervalRawValueMatchesBackend() {
+        XCTAssertEqual(CandleInterval.minute.rawValue, "MINUTE")
+        XCTAssertEqual(CandleInterval.day.rawValue, "DAY")
+        XCTAssertEqual(CandleInterval.week.rawValue, "WEEK")
+        XCTAssertEqual(CandleInterval.month.rawValue, "MONTH")
+        XCTAssertEqual(CandleInterval.year.rawValue, "YEAR")
+    }
+
+    func testCandleIntervalDateRangeUsesIntervalSpecificLookback() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Seoul")!
+        let asOf = Date(timeIntervalSince1970: 1_700_000_000)
+
+        let minute = CandleInterval.minute.dateRange(asOf: asOf, calendar: calendar)
+        XCTAssertEqual(minute.to, asOf)
+        XCTAssertEqual(calendar.dateComponents([.day], from: minute.from, to: minute.to).day, 7)
+
+        let day = CandleInterval.day.dateRange(asOf: asOf, calendar: calendar)
+        XCTAssertEqual(calendar.dateComponents([.month], from: day.from, to: day.to).month, 6)
+
+        let year = CandleInterval.year.dateRange(asOf: asOf, calendar: calendar)
+        XCTAssertEqual(calendar.dateComponents([.year], from: year.from, to: year.to).year, 10)
+    }
+
+    func testStockDetailChartTabLoadsCandles() async {
+        let candle = StockCandle(
+            candleTime: Date(timeIntervalSince1970: 1_700_000_000),
+            openPrice: 53_000,
+            highPrice: 53_800,
+            lowPrice: 52_600,
+            closePrice: 53_400,
+            tradeVolume: 1_000,
+            tradeAmount: 2_000
+        )
+        let store = TestStore(
+            initialState: StockDetailFeature.State(stock: Self.sampleStock, selectedTab: .orderBook)
+        ) {
+            StockDetailFeature()
+        } withDependencies: {
+            $0.date = .constant(Date(timeIntervalSince1970: 1_700_000_000))
+            $0.calendar = Calendar(identifier: .gregorian)
+            $0.stockClient.fetchCandles = { stockCode, interval, _, _ in
+                XCTAssertEqual(stockCode, "005930")
+                XCTAssertEqual(interval, .day)
+                return [candle]
+            }
+        }
+
+        await store.send(.tabSelected(.chart)) {
+            $0.selectedTab = .chart
+        }
+        await store.receive(.loadCandles) {
+            $0.isCandleLoading = true
+        }
+        await store.receive(.candlesLoaded([candle])) {
+            $0.candles = [candle]
+            $0.isCandleLoading = false
+        }
+    }
+
+    func testStockDetailIntervalSelectedRefetches() async {
+        let weekCandle = StockCandle(
+            candleTime: Date(timeIntervalSince1970: 1_700_000_000),
+            openPrice: 1,
+            highPrice: 2,
+            lowPrice: 0,
+            closePrice: 1,
+            tradeVolume: 1,
+            tradeAmount: 1
+        )
+        let store = TestStore(
+            initialState: StockDetailFeature.State(stock: Self.sampleStock, selectedInterval: .day)
+        ) {
+            StockDetailFeature()
+        } withDependencies: {
+            $0.date = .constant(Date(timeIntervalSince1970: 1_700_000_000))
+            $0.calendar = Calendar(identifier: .gregorian)
+            $0.stockClient.fetchCandles = { _, interval, _, _ in
+                XCTAssertEqual(interval, .week)
+                return [weekCandle]
+            }
+        }
+
+        await store.send(.intervalSelected(.week)) {
+            $0.selectedInterval = .week
+        }
+        await store.receive(.loadCandles) {
+            $0.isCandleLoading = true
+        }
+        await store.receive(.candlesLoaded([weekCandle])) {
+            $0.candles = [weekCandle]
+            $0.isCandleLoading = false
+        }
+    }
+
+    func testStockDetailCandlesFailedSetsErrorMessage() async {
+        let store = TestStore(
+            initialState: StockDetailFeature.State(stock: Self.sampleStock, isCandleLoading: true)
+        ) {
+            StockDetailFeature()
+        }
+
+        await store.send(.candlesFailed) {
+            $0.isCandleLoading = false
+            $0.candleErrorMessage = "차트를 불러오지 못했습니다."
+        }
+    }
 }
 
 private struct StubStockDataSource: StockDataSource {
@@ -920,6 +1087,14 @@ private struct StubStockDataSource: StockDataSource {
     var fetchPortfolioHandler: @Sendable () async throws -> PortfolioResponseDTO = {
         PortfolioResponseDTO(holdings: [])
     }
+    var fetchCandlesHandler: @Sendable (
+        _ stockCode: String,
+        _ interval: CandleInterval,
+        _ from: String,
+        _ to: String
+    ) async throws -> StockCandleListResponseDTO = { stockCode, interval, _, _ in
+        StockCandleListResponseDTO(stockCode: stockCode, interval: interval.rawValue, candles: [])
+    }
 
     func fetchStocks(
         market: StockMarket,
@@ -952,6 +1127,15 @@ private struct StubStockDataSource: StockDataSource {
 
     func fetchPortfolio() async throws -> PortfolioResponseDTO {
         try await fetchPortfolioHandler()
+    }
+
+    func fetchCandles(
+        stockCode: String,
+        interval: CandleInterval,
+        from: String,
+        to: String
+    ) async throws -> StockCandleListResponseDTO {
+        try await fetchCandlesHandler(stockCode, interval, from, to)
     }
 }
 
@@ -987,6 +1171,12 @@ private struct StubStockRepository: StockRepository {
         _ stockCode: String
     ) -> AsyncThrowingStream<StockOrderBookEvent, Error> = { _ in .never }
     var fetchHoldingHandler: @Sendable (_ stockCode: String) async throws -> StockHolding? = { _ in nil }
+    var fetchCandlesHandler: @Sendable (
+        _ stockCode: String,
+        _ interval: CandleInterval,
+        _ from: String,
+        _ to: String
+    ) async throws -> [StockCandle] = { _, _, _, _ in [] }
 
     func fetchStocks(
         market: StockMarket,
@@ -1019,5 +1209,14 @@ private struct StubStockRepository: StockRepository {
 
     func fetchHolding(stockCode: String) async throws -> StockHolding? {
         try await fetchHoldingHandler(stockCode)
+    }
+
+    func fetchCandles(
+        stockCode: String,
+        interval: CandleInterval,
+        from: String,
+        to: String
+    ) async throws -> [StockCandle] {
+        try await fetchCandlesHandler(stockCode, interval, from, to)
     }
 }

@@ -134,4 +134,16 @@ struct StockDataSourceImpl: StockDataSource {
             as: PortfolioResponseDTO.self
         )
     }
+
+    func fetchCandles(
+        stockCode: String,
+        interval: CandleInterval,
+        from: String,
+        to: String
+    ) async throws -> StockCandleListResponseDTO {
+        try await provider.request(
+            .candles(stockCode: stockCode, interval: interval, from: from, to: to),
+            as: StockCandleListResponseDTO.self
+        )
+    }
 }

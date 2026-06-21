@@ -8,6 +8,7 @@ enum StockAPI: TargetType {
     case stock(stockCode: String)
     case realtimePriceStream(stockCodes: [String])
     case realtimeOrderBookStream(stockCode: String)
+    case candles(stockCode: String, interval: CandleInterval, from: String, to: String)
 
     var baseURL: URL {
         URL(string: "http://localhost:8080")!
@@ -29,12 +30,15 @@ enum StockAPI: TargetType {
 
         case .realtimeOrderBookStream(let stockCode):
             "/api/v1/stocks/\(stockCode)/realtime/order-book/stream"
+
+        case .candles(let stockCode, _, _, _):
+            "/api/v1/stocks/\(stockCode)/candles"
         }
     }
 
     var method: HTTPMethod {
         switch self {
-        case .stocks, .rankings, .stock, .realtimePriceStream, .realtimeOrderBookStream:
+        case .stocks, .rankings, .stock, .realtimePriceStream, .realtimeOrderBookStream, .candles:
             .get
         }
     }
@@ -69,6 +73,16 @@ enum StockAPI: TargetType {
             // Spring `@RequestParam List<String>`는 comma 구분 값을 리스트로 받는다.
             .requestParameters(
                 ["stockCodes": stockCodes.joined(separator: ",")],
+                encoding: .url
+            )
+
+        case .candles(_, let interval, let from, let to):
+            .requestParameters(
+                [
+                    "interval": interval.rawValue,
+                    "from": from,
+                    "to": to
+                ],
                 encoding: .url
             )
         }

@@ -1,3 +1,5 @@
+import Foundation
+
 /// 종목 DataSource 응답 DTO를 Domain Entity로 변환하는 Repository 구현체.
 struct StockRepositoryImpl: StockRepository {
     private let stockDataSource: any StockDataSource
@@ -90,6 +92,51 @@ struct StockRepositoryImpl: StockRepository {
         return responseDTO.holdings
             .first { $0.stockCode == stockCode }
             .map { $0.toEntity() }
+    }
+
+    func fetchCandles(
+        stockCode: String,
+        interval: CandleInterval,
+        from: String,
+        to: String
+    ) async throws -> [StockCandle] {
+        let responseDTO = try await stockDataSource.fetchCandles(
+            stockCode: stockCode,
+            interval: interval,
+            from: from,
+            to: to
+        )
+
+        return responseDTO.toEntities()
+    }
+}
+
+/// 백엔드 캔들 `candleTime`(타임존 없는 LocalDateTime) 파싱용 KST 포맷터.
+private let candleTimeFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.timeZone = TimeZone(identifier: "Asia/Seoul")
+    formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+    return formatter
+}()
+
+private extension StockCandleListResponseDTO {
+    func toEntities() -> [StockCandle] {
+        candles.compactMap { dto in
+            guard let candleTime = candleTimeFormatter.date(from: dto.candleTime) else {
+                return nil
+            }
+
+            return StockCandle(
+                candleTime: candleTime,
+                openPrice: dto.openPrice,
+                highPrice: dto.highPrice,
+                lowPrice: dto.lowPrice,
+                closePrice: dto.closePrice,
+                tradeVolume: dto.tradeVolume,
+                tradeAmount: dto.tradeAmount
+            )
+        }
     }
 }
 

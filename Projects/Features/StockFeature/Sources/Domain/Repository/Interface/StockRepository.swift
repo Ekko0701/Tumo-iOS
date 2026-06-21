@@ -22,4 +22,12 @@ protocol StockRepository: Sendable {
 
     /// 지정 종목의 보유 현황을 조회한다. 보유 중이 아니면 nil.
     func fetchHolding(stockCode: String) async throws -> StockHolding?
+
+    /// 지정 종목의 캔들(차트) 목록을 조회한다. `from`/`to`는 `yyyyMMdd` 형식.
+    func fetchCandles(
+        stockCode: String,
+        interval: CandleInterval,
+        from: String,
+        to: String
+    ) async throws -> [StockCandle]
 }

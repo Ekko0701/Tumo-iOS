@@ -6,6 +6,8 @@ import Foundation
 public struct StockDetailFeature {
     @Dependency(\.stockClient) private var stockClient
     @Dependency(\.continuousClock) private var clock
+    @Dependency(\.date) private var date
+    @Dependency(\.calendar) private var calendar
 
     public init() {}
 
@@ -40,6 +42,11 @@ public struct StockDetailFeature {
         public var holding: StockHolding?
         public var isHoldingLoaded: Bool
         public var holdingErrorMessage: String?
+        /// 차트 탭 캔들. interval 전환 시 재조회한다.
+        public var candles: [StockCandle]
+        public var selectedInterval: CandleInterval
+        public var isCandleLoading: Bool
+        public var candleErrorMessage: String?
         /// 헤더 가격 stream 연속 실패 횟수(재연결 backoff).
         public var priceRetryCount: Int
         /// 호가 stream 연속 실패 횟수(재연결 backoff).
@@ -52,6 +59,10 @@ public struct StockDetailFeature {
             holding: StockHolding? = nil,
             isHoldingLoaded: Bool = false,
             holdingErrorMessage: String? = nil,
+            candles: [StockCandle] = [],
+            selectedInterval: CandleInterval = .day,
+            isCandleLoading: Bool = false,
+            candleErrorMessage: String? = nil,
             priceRetryCount: Int = 0,
             orderBookRetryCount: Int = 0
         ) {
@@ -61,6 +72,10 @@ public struct StockDetailFeature {
             self.holding = holding
             self.isHoldingLoaded = isHoldingLoaded
             self.holdingErrorMessage = holdingErrorMessage
+            self.candles = candles
+            self.selectedInterval = selectedInterval
+            self.isCandleLoading = isCandleLoading
+            self.candleErrorMessage = candleErrorMessage
             self.priceRetryCount = priceRetryCount
             self.orderBookRetryCount = orderBookRetryCount
         }
@@ -87,12 +102,19 @@ public struct StockDetailFeature {
         case loadHolding
         case holdingLoaded(StockHolding?)
         case holdingFailed
+
+        // 차트(캔들)
+        case intervalSelected(CandleInterval)
+        case loadCandles
+        case candlesLoaded([StockCandle])
+        case candlesFailed
     }
 
     private enum CancelID {
         case headerPrice
         case orderBook
         case holding
+        case candles
     }
 
     public var body: some ReducerOf<Self> {
@@ -109,7 +131,8 @@ public struct StockDetailFeature {
                 return .merge(
                     .cancel(id: CancelID.headerPrice),
                     .cancel(id: CancelID.orderBook),
-                    .cancel(id: CancelID.holding)
+                    .cancel(id: CancelID.holding),
+                    .cancel(id: CancelID.candles)
                 )
 
             case .tabSelected(let tab):
@@ -244,9 +267,58 @@ public struct StockDetailFeature {
                 // isHoldingLoaded는 false로 둬, 다음 탭 진입 시 재시도한다.
                 state.holdingErrorMessage = "보유 정보를 불러오지 못했습니다."
                 return .none
+
+            case .intervalSelected(let interval):
+                guard state.selectedInterval != interval else {
+                    return .none
+                }
+
+                state.selectedInterval = interval
+                return .send(.loadCandles)
+
+            case .loadCandles:
+                let stockCode = state.stock.stockCode
+                let interval = state.selectedInterval
+                let range = interval.dateRange(asOf: date.now, calendar: calendar)
+                let from = Self.dateParamFormatter.string(from: range.from)
+                let to = Self.dateParamFormatter.string(from: range.to)
+                let stockClient = stockClient
+
+                state.isCandleLoading = true
+                state.candleErrorMessage = nil
+
+                return .run { send in
+                    do {
+                        let candles = try await stockClient.fetchCandles(stockCode, interval, from, to)
+                        await send(.candlesLoaded(candles))
+                    } catch {
+                        await send(.candlesFailed)
+                    }
+                }
+                .cancellable(id: CancelID.candles, cancelInFlight: true)
+
+            case .candlesLoaded(let candles):
+                state.candles = candles
+                state.isCandleLoading = false
+                state.candleErrorMessage = nil
+                return .none
+
+            case .candlesFailed:
+                state.isCandleLoading = false
+                state.candleErrorMessage = "차트를 불러오지 못했습니다."
+                return .none
             }
         }
     }
+
+    /// 캔들 API의 `from`/`to` 쿼리(`yyyyMMdd`)를 만드는 KST 포맷터.
+    private static let dateParamFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "Asia/Seoul")
+        formatter.dateFormat = "yyyyMMdd"
+        return formatter
+    }()
 
     /// 탭 진입 시 필요한 effect.
     /// 호가 탭이면 호가 구독을 시작하고, 그 외 탭이면 호가 구독을 정리한다.
@@ -254,7 +326,10 @@ public struct StockDetailFeature {
     private func effectOnEnter(tab: Tab, state: State) -> Effect<Action> {
         switch tab {
         case .chart:
-            return .cancel(id: CancelID.orderBook)
+            let load: Effect<Action> = (state.candles.isEmpty && !state.isCandleLoading)
+                ? .send(.loadCandles)
+                : .none
+            return .merge(.cancel(id: CancelID.orderBook), load)
 
         case .orderBook:
             return .send(.startOrderBookStream)
