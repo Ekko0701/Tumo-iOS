@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import CoreNetwork
 import Foundation
 
 /// 종목 리스트 랭킹 기준. 백엔드 `StockRankingType`으로 변환해 서버 랭킹 API를 호출한다.
@@ -196,7 +197,7 @@ public struct StockFeature {
 
             case .realtimeStreamFailed:
                 state.realtimeRetryCount += 1
-                let delay = Self.realtimeRetryDelay(retryCount: state.realtimeRetryCount)
+                let delay = SseReconnectBackoff.delay(retryCount: state.realtimeRetryCount)
                 let clock = clock
 
                 return .run { send in
@@ -220,14 +221,6 @@ public struct StockFeature {
         .ifLet(\.$detail, action: \.detail) {
             StockDetailFeature()
         }
-    }
-
-    /// 지수 backoff 재연결 지연(초). 1, 2, 4, ... 최대 30초.
-    static func realtimeRetryDelay(retryCount: Int) -> Int {
-        let maxDelaySeconds = 30
-        let exponent = min(retryCount - 1, 5)
-
-        return min(1 << max(exponent, 0), maxDelaySeconds)
     }
 
     /// 시장 선택 UI를 붙이기 전까지는 KOSPI만 조회한다.

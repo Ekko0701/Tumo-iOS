@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import CoreNetwork
 import Foundation
 
 @Reducer
@@ -164,7 +165,7 @@ public struct StockDetailFeature {
 
             case .priceStreamFailed:
                 state.priceRetryCount += 1
-                let delay = StockFeature.realtimeRetryDelay(retryCount: state.priceRetryCount)
+                let delay = SseReconnectBackoff.delay(retryCount: state.priceRetryCount)
                 let clock = clock
 
                 return .run { send in
@@ -209,7 +210,7 @@ public struct StockDetailFeature {
                 }
 
                 state.orderBookRetryCount += 1
-                let delay = StockFeature.realtimeRetryDelay(retryCount: state.orderBookRetryCount)
+                let delay = SseReconnectBackoff.delay(retryCount: state.orderBookRetryCount)
                 let clock = clock
 
                 return .run { send in

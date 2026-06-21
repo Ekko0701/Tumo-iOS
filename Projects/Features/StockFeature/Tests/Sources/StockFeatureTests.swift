@@ -1,5 +1,6 @@
 import XCTest
 import ComposableArchitecture
+import CoreNetwork
 @testable import StockFeature
 
 @MainActor
@@ -480,11 +481,11 @@ final class StockFeatureTests: XCTestCase {
     }
 
     func testRealtimeRetryDelayBacksOffExponentiallyWithCap() {
-        XCTAssertEqual(StockFeature.realtimeRetryDelay(retryCount: 1), 1)
-        XCTAssertEqual(StockFeature.realtimeRetryDelay(retryCount: 2), 2)
-        XCTAssertEqual(StockFeature.realtimeRetryDelay(retryCount: 3), 4)
-        XCTAssertEqual(StockFeature.realtimeRetryDelay(retryCount: 6), 30)
-        XCTAssertEqual(StockFeature.realtimeRetryDelay(retryCount: 100), 30)
+        XCTAssertEqual(SseReconnectBackoff.delay(retryCount: 1), 1)
+        XCTAssertEqual(SseReconnectBackoff.delay(retryCount: 2), 2)
+        XCTAssertEqual(SseReconnectBackoff.delay(retryCount: 3), 4)
+        XCTAssertEqual(SseReconnectBackoff.delay(retryCount: 6), 30)
+        XCTAssertEqual(SseReconnectBackoff.delay(retryCount: 100), 30)
     }
 
     func testStockFeatureShowsErrorMessageWhenLoadingFails() async {
