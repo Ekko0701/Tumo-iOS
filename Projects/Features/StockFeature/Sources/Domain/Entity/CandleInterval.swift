@@ -73,23 +73,22 @@ public enum CandleInterval: String, CaseIterable, Equatable, Sendable, Identifia
         return (from, to)
     }
 
-    /// 스크롤 가능한 차트에서 한 화면에 보일 가로 구간 길이(초).
+    /// 스크롤 가능한 차트에서 한 화면에 보일 기본 봉 개수(줌 1배 기준).
     ///
-    /// 조회 기간(`windowStep`)보다 작게 잡아 스크롤할 여백을 남긴다.
-    public var visibleDomainSeconds: TimeInterval {
-        let day: TimeInterval = 60 * 60 * 24
-
+    /// 봉 두께는 "화면 폭 ÷ 보이는 봉 개수"로 정해지므로, 이 값이 작을수록 봉이 두꺼워진다.
+    /// 핀치 줌은 이 값을 배율로 나눠 실제 표시 개수를 조절한다.
+    public var baseVisibleCandleCount: Int {
         switch self {
         case .minute:
-            return 60 * 60 * 6        // 약 6시간
+            60
         case .day:
-            return day * 60           // 약 60일
+            40
         case .week:
-            return day * 7 * 26       // 약 26주
+            40
         case .month:
-            return day * 30 * 24      // 약 24개월
+            36
         case .year:
-            return day * 365 * 6      // 약 6년
+            12
         }
     }
 }
