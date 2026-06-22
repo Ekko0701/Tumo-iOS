@@ -42,11 +42,15 @@ public struct StockDetailFeature {
         public var holding: StockHolding?
         public var isHoldingLoaded: Bool
         public var holdingErrorMessage: String?
-        /// 차트 탭 캔들. interval 전환 시 재조회한다.
+        /// 차트 탭 캔들. interval 전환 시 재조회한다. 과거 스크롤 시 앞쪽에 prepend한다.
         public var candles: [StockCandle]
         public var selectedInterval: CandleInterval
         public var isCandleLoading: Bool
         public var candleErrorMessage: String?
+        /// 과거 캔들 추가 조회가 진행 중인지(중복 요청 방지).
+        public var isLoadingOlderCandles: Bool
+        /// 더 받을 과거 캔들이 남아 있는지. 추가 조회가 빈 결과면 false로 내려 무한 요청을 막는다.
+        public var hasMoreCandleHistory: Bool
         /// 헤더 가격 stream 연속 실패 횟수(재연결 backoff).
         public var priceRetryCount: Int
         /// 호가 stream 연속 실패 횟수(재연결 backoff).
@@ -63,6 +67,8 @@ public struct StockDetailFeature {
             selectedInterval: CandleInterval = .day,
             isCandleLoading: Bool = false,
             candleErrorMessage: String? = nil,
+            isLoadingOlderCandles: Bool = false,
+            hasMoreCandleHistory: Bool = true,
             priceRetryCount: Int = 0,
             orderBookRetryCount: Int = 0
         ) {
@@ -76,6 +82,8 @@ public struct StockDetailFeature {
             self.selectedInterval = selectedInterval
             self.isCandleLoading = isCandleLoading
             self.candleErrorMessage = candleErrorMessage
+            self.isLoadingOlderCandles = isLoadingOlderCandles
+            self.hasMoreCandleHistory = hasMoreCandleHistory
             self.priceRetryCount = priceRetryCount
             self.orderBookRetryCount = orderBookRetryCount
         }
@@ -108,6 +116,10 @@ public struct StockDetailFeature {
         case loadCandles
         case candlesLoaded([StockCandle])
         case candlesFailed
+        // 과거 캔들 추가 로딩(차트 왼쪽 끝 스크롤)
+        case loadOlderCandles
+        case olderCandlesLoaded([StockCandle])
+        case olderCandlesFailed
     }
 
     private enum CancelID {
@@ -115,6 +127,7 @@ public struct StockDetailFeature {
         case orderBook
         case holding
         case candles
+        case olderCandles
     }
 
     public var body: some ReducerOf<Self> {
@@ -132,7 +145,8 @@ public struct StockDetailFeature {
                     .cancel(id: CancelID.headerPrice),
                     .cancel(id: CancelID.orderBook),
                     .cancel(id: CancelID.holding),
-                    .cancel(id: CancelID.candles)
+                    .cancel(id: CancelID.candles),
+                    .cancel(id: CancelID.olderCandles)
                 )
 
             case .tabSelected(let tab):
@@ -286,16 +300,22 @@ public struct StockDetailFeature {
 
                 state.isCandleLoading = true
                 state.candleErrorMessage = nil
+                // 새 구간을 처음부터 받으므로 과거 추가 로딩 상태를 초기화한다.
+                state.isLoadingOlderCandles = false
+                state.hasMoreCandleHistory = true
 
-                return .run { send in
-                    do {
-                        let candles = try await stockClient.fetchCandles(stockCode, interval, from, to)
-                        await send(.candlesLoaded(candles))
-                    } catch {
-                        await send(.candlesFailed)
+                return .merge(
+                    .cancel(id: CancelID.olderCandles),
+                    .run { send in
+                        do {
+                            let candles = try await stockClient.fetchCandles(stockCode, interval, from, to)
+                            await send(.candlesLoaded(candles))
+                        } catch {
+                            await send(.candlesFailed)
+                        }
                     }
-                }
-                .cancellable(id: CancelID.candles, cancelInFlight: true)
+                    .cancellable(id: CancelID.candles, cancelInFlight: true)
+                )
 
             case .candlesLoaded(let candles):
                 state.candles = candles
@@ -306,6 +326,54 @@ public struct StockDetailFeature {
             case .candlesFailed:
                 state.isCandleLoading = false
                 state.candleErrorMessage = "차트를 불러오지 못했습니다."
+                return .none
+
+            case .loadOlderCandles:
+                // 초기 로딩 중이거나, 이미 과거를 받는 중이거나, 더 받을 과거가 없으면 무시한다.
+                guard !state.isCandleLoading,
+                      !state.isLoadingOlderCandles,
+                      state.hasMoreCandleHistory,
+                      let earliest = state.candles.first?.candleTime else {
+                    return .none
+                }
+
+                let stockCode = state.stock.stockCode
+                let interval = state.selectedInterval
+                let range = interval.previousRange(before: earliest, calendar: calendar)
+                let from = Self.dateParamFormatter.string(from: range.from)
+                let to = Self.dateParamFormatter.string(from: range.to)
+                let stockClient = stockClient
+
+                state.isLoadingOlderCandles = true
+
+                return .run { send in
+                    do {
+                        let candles = try await stockClient.fetchCandles(stockCode, interval, from, to)
+                        await send(.olderCandlesLoaded(candles))
+                    } catch {
+                        await send(.olderCandlesFailed)
+                    }
+                }
+                .cancellable(id: CancelID.olderCandles, cancelInFlight: true)
+
+            case .olderCandlesLoaded(let older):
+                state.isLoadingOlderCandles = false
+
+                let existingTimes = Set(state.candles.map(\.candleTime))
+                let fresh = older.filter { !existingTimes.contains($0.candleTime) }
+
+                guard !fresh.isEmpty else {
+                    // 새로 받은 과거 봉이 없으면 더 받을 과거가 없다고 보고 추가 요청을 멈춘다.
+                    state.hasMoreCandleHistory = false
+                    return .none
+                }
+
+                state.candles = (fresh + state.candles).sorted { $0.candleTime < $1.candleTime }
+                return .none
+
+            case .olderCandlesFailed:
+                // 일시 실패: hasMoreCandleHistory는 유지해 다음 스크롤에서 재시도할 수 있게 한다.
+                state.isLoadingOlderCandles = false
                 return .none
             }
         }
