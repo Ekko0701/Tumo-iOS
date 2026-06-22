@@ -26,38 +26,69 @@ public enum CandleInterval: String, CaseIterable, Equatable, Sendable, Identifia
         }
     }
 
-    /// 시간 단위별 조회 기간을 계산한다.
+    /// 한 번에 조회할 기간의 크기(달력 성분 + 음수 값).
     ///
     /// 분봉은 백엔드가 1회 조회를 최대 7일로 제한하므로 7일만 조회한다.
     /// 그 외에는 차트 표시에 충분한 과거 구간을 잡는다.
+    /// `dateRange`(최초 조회)와 `previousRange`(스크롤 시 과거 추가 조회)가 공유한다.
+    private var windowStep: (component: Calendar.Component, value: Int) {
+        switch self {
+        case .minute:
+            (.day, -7)
+        case .day:
+            (.month, -6)
+        case .week:
+            (.year, -2)
+        case .month:
+            (.year, -5)
+        case .year:
+            (.year, -10)
+        }
+    }
+
+    /// 시간 단위별 최초 조회 기간을 계산한다.
     ///
     /// - Parameters:
     ///   - now: 기준 시각(보통 오늘).
     ///   - calendar: 날짜 계산에 사용할 캘린더.
     /// - Returns: `from`(과거) ~ `to`(now) 조회 구간.
     public func dateRange(asOf now: Date, calendar: Calendar) -> (from: Date, to: Date) {
-        let component: Calendar.Component
-        let value: Int
+        let step = windowStep
+        let from = calendar.date(byAdding: step.component, value: step.value, to: now) ?? now
+        return (from, now)
+    }
 
+    /// 차트를 과거로 스크롤할 때, 현재 보유한 가장 이른 봉 **직전**의 한 구간을 계산한다.
+    ///
+    /// `to`를 `earliest` 하루 전으로 잡아 이미 보유한 구간과 겹치지 않게 한다.
+    ///
+    /// - Parameters:
+    ///   - earliest: 현재 보유한 가장 이른 봉의 기준 시각.
+    ///   - calendar: 날짜 계산에 사용할 캘린더.
+    /// - Returns: `earliest` 직전의 `from` ~ `to` 조회 구간.
+    public func previousRange(before earliest: Date, calendar: Calendar) -> (from: Date, to: Date) {
+        let to = calendar.date(byAdding: .day, value: -1, to: earliest) ?? earliest
+        let step = windowStep
+        let from = calendar.date(byAdding: step.component, value: step.value, to: to) ?? to
+        return (from, to)
+    }
+
+    /// 스크롤 가능한 차트에서 한 화면에 보일 기본 봉 개수(줌 1배 기준).
+    ///
+    /// 봉 두께는 "화면 폭 ÷ 보이는 봉 개수"로 정해지므로, 이 값이 작을수록 봉이 두꺼워진다.
+    /// 핀치 줌은 이 값을 배율로 나눠 실제 표시 개수를 조절한다.
+    public var baseVisibleCandleCount: Int {
         switch self {
         case .minute:
-            component = .day
-            value = -7
+            60
         case .day:
-            component = .month
-            value = -6
+            40
         case .week:
-            component = .year
-            value = -2
+            40
         case .month:
-            component = .year
-            value = -5
+            36
         case .year:
-            component = .year
-            value = -10
+            12
         }
-
-        let from = calendar.date(byAdding: component, value: value, to: now) ?? now
-        return (from, now)
     }
 }
