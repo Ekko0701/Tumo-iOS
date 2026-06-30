@@ -10,6 +10,16 @@ struct OrderRepositoryImpl: OrderRepository {
         let dto = try await orderDataSource.buy(stockCode: stockCode, quantity: quantity)
         return dto.toEntity()
     }
+
+    func sell(stockCode: String, quantity: Int) async throws -> Order {
+        let dto = try await orderDataSource.sell(stockCode: stockCode, quantity: quantity)
+        return dto.toEntity()
+    }
+
+    func history(page: Int, size: Int) async throws -> OrderPage {
+        let dto = try await orderDataSource.orderHistory(page: page, size: size)
+        return dto.toEntity()
+    }
 }
 
 private extension OrderResponseDTO {
@@ -22,7 +32,30 @@ private extension OrderResponseDTO {
             quantity: quantity,
             executedPrice: executedPrice,
             totalAmount: totalAmount,
+            realizedProfit: realizedProfit,
             cashBalance: cashBalance,
+            executedAt: executedAt
+        )
+    }
+}
+
+private extension OrderPageDTO {
+    func toEntity() -> OrderPage {
+        OrderPage(items: orders.map { $0.toEntity() }, page: page, hasNext: hasNext)
+    }
+}
+
+private extension OrderHistoryItemDTO {
+    func toEntity() -> OrderHistoryItem {
+        OrderHistoryItem(
+            orderId: orderId,
+            stockCode: stockCode,
+            stockName: stockName,
+            orderType: orderType,
+            quantity: quantity,
+            executedPrice: executedPrice,
+            totalAmount: totalAmount,
+            realizedProfit: realizedProfit,
             executedAt: executedAt
         )
     }

@@ -7,6 +7,7 @@ public struct Order: Equatable, Sendable {
     public let quantity: Int
     public let executedPrice: Int
     public let totalAmount: Int
+    public let realizedProfit: Int?
     public let cashBalance: Int
     public let executedAt: String
 
@@ -18,6 +19,7 @@ public struct Order: Equatable, Sendable {
         quantity: Int,
         executedPrice: Int,
         totalAmount: Int,
+        realizedProfit: Int?,
         cashBalance: Int,
         executedAt: String
     ) {
@@ -28,6 +30,7 @@ public struct Order: Equatable, Sendable {
         self.quantity = quantity
         self.executedPrice = executedPrice
         self.totalAmount = totalAmount
+        self.realizedProfit = realizedProfit
         self.cashBalance = cashBalance
         self.executedAt = executedAt
     }

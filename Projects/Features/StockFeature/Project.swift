@@ -7,6 +7,7 @@ let project = Project.tumoFeature(
         .module(.tumoNetwork),
         .module(.coreNetwork),
         .module(.coreModels),
-        .module(.coreDesignSystem)
+        .module(.coreDesignSystem),
+        .module(.orderFeature)
     ]
 )

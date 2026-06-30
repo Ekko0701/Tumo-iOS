@@ -7,6 +7,8 @@ struct OrderResponseDTO: Decodable, Sendable {
     let quantity: Int
     let executedPrice: Int
     let totalAmount: Int
+    /// 실현 이익. BUY 주문의 경우 null.
+    let realizedProfit: Int?
     let cashBalance: Int
     let executedAt: String
 }

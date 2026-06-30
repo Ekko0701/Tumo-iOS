@@ -6,7 +6,7 @@ struct OrderFeatureDemoApp: App {
     var body: some Scene {
         WindowGroup {
             NavigationStack {
-                OrderView()
+                OrderHistoryView()
             }
         }
     }

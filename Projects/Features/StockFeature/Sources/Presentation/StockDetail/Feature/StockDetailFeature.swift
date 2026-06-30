@@ -1,6 +1,7 @@
 import ComposableArchitecture
 import CoreNetwork
 import Foundation
+import OrderFeature
 
 @Reducer
 public struct StockDetailFeature {
@@ -55,6 +56,8 @@ public struct StockDetailFeature {
         public var priceRetryCount: Int
         /// 호가 stream 연속 실패 횟수(재연결 backoff).
         public var orderBookRetryCount: Int
+        /// 주문 시트 presentation 상태.
+        @Presents public var orderSheet: OrderSheetFeature.State?
 
         public init(
             stock: Stock,
@@ -70,7 +73,8 @@ public struct StockDetailFeature {
             isLoadingOlderCandles: Bool = false,
             hasMoreCandleHistory: Bool = true,
             priceRetryCount: Int = 0,
-            orderBookRetryCount: Int = 0
+            orderBookRetryCount: Int = 0,
+            orderSheet: OrderSheetFeature.State? = nil
         ) {
             self.stock = stock
             self.selectedTab = selectedTab
@@ -86,6 +90,7 @@ public struct StockDetailFeature {
             self.hasMoreCandleHistory = hasMoreCandleHistory
             self.priceRetryCount = priceRetryCount
             self.orderBookRetryCount = orderBookRetryCount
+            self.orderSheet = orderSheet
         }
     }
 
@@ -120,6 +125,11 @@ public struct StockDetailFeature {
         case loadOlderCandles
         case olderCandlesLoaded([StockCandle])
         case olderCandlesFailed
+
+        // 주문 시트
+        case buyTapped
+        case sellTapped
+        case orderSheet(PresentationAction<OrderSheetFeature.Action>)
     }
 
     private enum CancelID {
@@ -135,8 +145,10 @@ public struct StockDetailFeature {
             switch action {
             case .onAppear:
                 // 헤더 현재가는 상세가 떠 있는 동안 항상 구독한다.
+                // 하단 바의 매도 버튼 활성화를 위해 보유 정보는 항상 한 번 로드한다.
                 return .merge(
                     .send(.startPriceStream),
+                    state.isHoldingLoaded ? .none : .send(.loadHolding),
                     effectOnEnter(tab: state.selectedTab, state: state)
                 )
 
@@ -375,7 +387,37 @@ public struct StockDetailFeature {
                 // 일시 실패: hasMoreCandleHistory는 유지해 다음 스크롤에서 재시도할 수 있게 한다.
                 state.isLoadingOlderCandles = false
                 return .none
+
+            case .buyTapped:
+                state.orderSheet = OrderSheetFeature.State(
+                    stockCode: state.stock.stockCode,
+                    stockName: state.stock.stockName,
+                    currentPrice: state.stock.currentPrice,
+                    mode: .buy,
+                    ownedQuantity: state.holding?.quantity ?? 0
+                )
+                return .none
+
+            case .sellTapped:
+                state.orderSheet = OrderSheetFeature.State(
+                    stockCode: state.stock.stockCode,
+                    stockName: state.stock.stockName,
+                    currentPrice: state.stock.currentPrice,
+                    mode: .sell,
+                    ownedQuantity: state.holding?.quantity ?? 0
+                )
+                return .none
+
+            case .orderSheet(.presented(.delegate(.orderCompleted))):
+                state.isHoldingLoaded = false
+                return .send(.loadHolding)
+
+            case .orderSheet:
+                return .none
             }
+        }
+        .ifLet(\.$orderSheet, action: \.orderSheet) {
+            OrderSheetFeature()
         }
     }
 
