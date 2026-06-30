@@ -7,8 +7,10 @@ enum OrderAssembly {
 
         let orderDataSource = OrderDataSourceImpl(provider: provider)
         let orderRepository = OrderRepositoryImpl(orderDataSource: orderDataSource)
-        let buyStockUsecase = BuyStockUsecaseImpl(orderRepository: orderRepository)
-
-        return OrderClient.live(buyStockUsecase: buyStockUsecase)
+        return OrderClient.live(
+            buyStockUsecase: BuyStockUsecaseImpl(orderRepository: orderRepository),
+            sellStockUsecase: SellStockUsecaseImpl(orderRepository: orderRepository),
+            fetchOrderHistoryUsecase: FetchOrderHistoryUsecaseImpl(orderRepository: orderRepository)
+        )
     }
 }
