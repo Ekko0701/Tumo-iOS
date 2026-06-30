@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import CoreDesignSystem
 import SwiftUI
 
 public struct OrderSheetView: View {
@@ -208,9 +209,9 @@ private struct SubmitButton: View {
 
     private var buttonBackgroundColor: Color {
         if isSubmitting {
-            return mode == .buy ? Color.tumoBlueDisabled : Color.tumoDownDisabled
+            return mode == .buy ? Color.tumoUpDisabled : Color.tumoDownDisabled
         }
-        return mode == .buy ? Color.tumoBlue : Color.tumoDown
+        return mode == .buy ? Color.tumoUp : Color.tumoDown
     }
 }
 
@@ -266,14 +267,14 @@ private struct MessageBanner: View {
     private var foregroundColor: Color {
         switch style {
         case .error:
-            Color.tumoDown
+            Color.tumoError
         }
     }
 
     private var backgroundColor: Color {
         switch style {
         case .error:
-            Color.tumoDown.opacity(0.06)
+            Color.tumoError.opacity(0.06)
         }
     }
 }
@@ -311,17 +312,14 @@ private struct OrderInfoRow: View {
 }
 
 private extension Color {
-    static let tumoBlue = Color(red: 0, green: 82.0 / 255.0, blue: 1)
-    static let tumoBlueDisabled = Color(red: 168.0 / 255.0, green: 184.0 / 255.0, blue: 204.0 / 255.0)
-    static let tumoUp = Color(red: 0, green: 122.0 / 255.0, blue: 64.0 / 255.0)
-    static let tumoDown = Color(red: 207.0 / 255.0, green: 32.0 / 255.0, blue: 47.0 / 255.0)
-    static let tumoDownDisabled = Color(red: 220.0 / 255.0, green: 140.0 / 255.0, blue: 150.0 / 255.0)
-    static let tumoInk = Color(red: 10.0 / 255.0, green: 11.0 / 255.0, blue: 13.0 / 255.0)
-    static let tumoBody = Color(red: 91.0 / 255.0, green: 97.0 / 255.0, blue: 110.0 / 255.0)
-    static let tumoMuted = Color(red: 124.0 / 255.0, green: 130.0 / 255.0, blue: 138.0 / 255.0)
-    static let tumoHairline = Color(red: 222.0 / 255.0, green: 225.0 / 255.0, blue: 230.0 / 255.0)
-    static let tumoHairlineSoft = Color(red: 238.0 / 255.0, green: 240.0 / 255.0, blue: 243.0 / 255.0)
-    static let tumoCanvas = Color.white
+    // Disabled variants
+    static let tumoUpDisabled = Color(red: 240.0 / 255.0, green: 68.0 / 255.0, blue: 82.0 / 255.0).opacity(0.5)
+    static let tumoDownDisabled = Color(red: 49.0 / 255.0, green: 130.0 / 255.0, blue: 246.0 / 255.0).opacity(0.5)
+
+    // Error (dedicated red, not tumoDown which is blue)
+    static let tumoError = Color(red: 207.0 / 255.0, green: 32.0 / 255.0, blue: 47.0 / 255.0)
+
+    // Supporting colors (not in CoreDesignSystem)
     static let tumoCard = Color.white
     static let tumoOnPrimary = Color.white
 }
