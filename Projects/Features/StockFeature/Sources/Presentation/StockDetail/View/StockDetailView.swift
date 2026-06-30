@@ -1,6 +1,7 @@
 import ComposableArchitecture
 import CoreDesignSystem
 import Foundation
+import OrderFeature
 import SwiftUI
 
 /// 종목 상세 화면. 헤더(실시간 현재가) + 차트/호가/MY주식 탭으로 구성한다.
@@ -13,7 +14,9 @@ public struct StockDetailView: View {
     }
 
     public var body: some View {
-        ZStack {
+        @Bindable var store = store
+
+        return ZStack {
             Color.tumoCanvas
                 .ignoresSafeArea()
 
@@ -29,6 +32,10 @@ public struct StockDetailView: View {
                     .frame(height: 1)
 
                 tabContent
+
+                Spacer()
+
+                orderBar
             }
         }
         .navigationBarTitleDisplayMode(.inline)
@@ -38,6 +45,10 @@ public struct StockDetailView: View {
         }
         .onDisappear {
             store.send(.onDisappear)
+        }
+        .sheet(item: $store.scope(state: \.orderSheet, action: \.orderSheet)) { sheetStore in
+            OrderSheetView(store: sheetStore)
+                .presentationDetents([.medium])
         }
     }
 
@@ -128,6 +139,41 @@ public struct StockDetailView: View {
         }
 
         return .flat
+    }
+
+    // MARK: - Order Bar
+
+    private var orderBar: some View {
+        HStack(spacing: 12) {
+            Button {
+                store.send(.buyTapped)
+            } label: {
+                Text("매수")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Color.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 48)
+                    .background(Color.tumoUp, in: RoundedRectangle(cornerRadius: 8))
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                store.send(.sellTapped)
+            } label: {
+                Text("매도")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Color.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 48)
+                    .background(Color.tumoDown, in: RoundedRectangle(cornerRadius: 8))
+            }
+            .buttonStyle(.plain)
+            .disabled((store.holding?.quantity ?? 0) == 0)
+            .opacity((store.holding?.quantity ?? 0) == 0 ? 0.5 : 1.0)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
+        .background(Color.tumoCanvas)
     }
 
     // MARK: - Tab Content
