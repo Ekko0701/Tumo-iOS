@@ -14,4 +14,18 @@ struct OrderDataSourceImpl: OrderDataSource {
             as: OrderResponseDTO.self
         )
     }
+
+    func sell(stockCode: String, quantity: Int) async throws -> OrderResponseDTO {
+        try await provider.request(
+            .sell(stockCode: stockCode, quantity: quantity),
+            as: OrderResponseDTO.self
+        )
+    }
+
+    func orderHistory(page: Int, size: Int) async throws -> OrderPageDTO {
+        try await provider.request(
+            .orderHistory(page: page, size: size),
+            as: OrderPageDTO.self
+        )
+    }
 }
