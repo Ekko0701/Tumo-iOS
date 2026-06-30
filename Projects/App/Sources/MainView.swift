@@ -72,7 +72,7 @@ private struct MainTabContentView: View {
             StockView()
 
         case .orders:
-            OrderView()
+            OrderHistoryView()
 
         case .home, .portfolio, .my:
             placeholder
