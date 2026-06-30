@@ -41,4 +41,16 @@ final class OrderHistoryFeatureTests: XCTestCase {
         // hasNext=false 이후 추가 요청은 무시(네트워크 호출 없음)
         await store.send(.loadNextPage)
     }
+
+    func test_loadFailed() async {
+        struct Boom: Error {}
+        let store = TestStore(initialState: OrderHistoryFeature.State()) { OrderHistoryFeature() }
+        store.dependencies.orderClient.history = { _, _ in throw Boom() }
+
+        await store.send(.onAppear) { $0.isLoading = true }
+        await store.receive(.loadFailed) {
+            $0.isLoading = false
+            $0.errorMessage = "주문 내역을 불러오지 못했습니다."
+        }
+    }
 }

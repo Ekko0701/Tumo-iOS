@@ -2,8 +2,11 @@ import ComposableArchitecture
 
 /// TCA Reducer에서 사용할 주문 API 의존성.
 struct OrderClient: Sendable {
+    /// 주식 매수 API.
     var buy: @Sendable (_ stockCode: String, _ quantity: Int) async throws -> Order
+    /// 주식 매도 API.
     var sell: @Sendable (_ stockCode: String, _ quantity: Int) async throws -> Order
+    /// 주문 내역 조회 API.
     var history: @Sendable (_ page: Int, _ size: Int) async throws -> OrderPage
 
     init(

@@ -1,3 +1,4 @@
+/// 주문 내역 항목을 디코딩하는 DTO.
 struct OrderHistoryItemDTO: Decodable, Sendable {
     let orderId: Int
     let stockCode: String
@@ -10,6 +11,7 @@ struct OrderHistoryItemDTO: Decodable, Sendable {
     let executedAt: String
 }
 
+/// 주문 내역 페이지를 디코딩하는 DTO.
 struct OrderPageDTO: Decodable, Sendable {
     let orders: [OrderHistoryItemDTO]
     let page: Int
