@@ -33,6 +33,12 @@ extension OrderClient {
 
 private enum OrderClientKey: DependencyKey {
     static let liveValue = OrderAssembly.live()
+
+    static let testValue = OrderClient(
+        buy: { _, _ in fatalError("unimplemented") },
+        sell: { _, _ in fatalError("unimplemented") },
+        history: { _, _ in fatalError("unimplemented") }
+    )
 }
 
 extension DependencyValues {
