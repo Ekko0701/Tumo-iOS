@@ -1,5 +1,4 @@
-/// 백엔드 주문 API 응답을 디코딩하는 DTO.
-struct OrderResponseDTO: Decodable, Sendable {
+struct OrderHistoryItemDTO: Decodable, Sendable {
     let orderId: Int
     let stockCode: String
     let stockName: String
@@ -8,6 +7,12 @@ struct OrderResponseDTO: Decodable, Sendable {
     let executedPrice: Int
     let totalAmount: Int
     let realizedProfit: Int?
-    let cashBalance: Int
     let executedAt: String
+}
+
+struct OrderPageDTO: Decodable, Sendable {
+    let orders: [OrderHistoryItemDTO]
+    let page: Int
+    let size: Int
+    let hasNext: Bool
 }

@@ -22,6 +22,7 @@ private extension OrderResponseDTO {
             quantity: quantity,
             executedPrice: executedPrice,
             totalAmount: totalAmount,
+            realizedProfit: realizedProfit,
             cashBalance: cashBalance,
             executedAt: executedAt
         )

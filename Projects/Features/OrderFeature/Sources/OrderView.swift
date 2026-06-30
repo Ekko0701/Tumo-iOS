@@ -259,6 +259,7 @@ private extension Color {
                         quantity: 10,
                         executedPrice: 75_000,
                         totalAmount: 750_000,
+                        realizedProfit: nil,
                         cashBalance: 9_250_000,
                         executedAt: "2026-05-13T17:20:00"
                     )
