@@ -19,6 +19,7 @@ enum StockAssembly {
         let observeRealtimePricesUsecase = ObserveRealtimePricesUsecaseImpl(stockRepository: stockRepository)
         let observeOrderBookUsecase = ObserveOrderBookUsecaseImpl(stockRepository: stockRepository)
         let fetchHoldingUsecase = FetchHoldingUsecaseImpl(stockRepository: stockRepository)
+        let fetchPortfolioUsecase = FetchPortfolioUsecaseImpl(stockRepository: stockRepository)
         let fetchCandlesUsecase = FetchCandlesUsecaseImpl(stockRepository: stockRepository)
 
         return StockClient.live(
@@ -28,6 +29,7 @@ enum StockAssembly {
             observeRealtimePricesUsecase: observeRealtimePricesUsecase,
             observeOrderBookUsecase: observeOrderBookUsecase,
             fetchHoldingUsecase: fetchHoldingUsecase,
+            fetchPortfolioUsecase: fetchPortfolioUsecase,
             fetchCandlesUsecase: fetchCandlesUsecase
         )
     }

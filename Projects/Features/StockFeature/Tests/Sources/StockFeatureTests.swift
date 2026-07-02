@@ -590,6 +590,11 @@ final class StockFeatureTests: XCTestCase {
             stockDataSource: StubStockDataSource(
                 fetchPortfolioHandler: {
                     PortfolioResponseDTO(
+                        cashBalance: 0,
+                        totalStockValue: 1_625_000,
+                        totalAsset: 1_625_000,
+                        profitAmount: 25_000,
+                        profitRate: 1.56,
                         holdings: [
                             PortfolioResponseDTO.PortfolioHoldingDTO(
                                 stockCode: "005930",
@@ -639,6 +644,11 @@ final class StockFeatureTests: XCTestCase {
             stockDataSource: StubStockDataSource(
                 fetchPortfolioHandler: {
                     PortfolioResponseDTO(
+                        cashBalance: 0,
+                        totalStockValue: 750_000,
+                        totalAsset: 750_000,
+                        profitAmount: 50_000,
+                        profitRate: 7.14,
                         holdings: [
                             PortfolioResponseDTO.PortfolioHoldingDTO(
                                 stockCode: "005930",
@@ -1085,7 +1095,14 @@ private struct StubStockDataSource: StockDataSource {
         _ stockCode: String
     ) -> AsyncThrowingStream<StockOrderBookEventDTO, Error> = { _ in .never }
     var fetchPortfolioHandler: @Sendable () async throws -> PortfolioResponseDTO = {
-        PortfolioResponseDTO(holdings: [])
+        PortfolioResponseDTO(
+            cashBalance: 0,
+            totalStockValue: 0,
+            totalAsset: 0,
+            profitAmount: 0,
+            profitRate: 0,
+            holdings: []
+        )
     }
     var fetchCandlesHandler: @Sendable (
         _ stockCode: String,
@@ -1171,6 +1188,16 @@ private struct StubStockRepository: StockRepository {
         _ stockCode: String
     ) -> AsyncThrowingStream<StockOrderBookEvent, Error> = { _ in .never }
     var fetchHoldingHandler: @Sendable (_ stockCode: String) async throws -> StockHolding? = { _ in nil }
+    var fetchPortfolioHandler: @Sendable () async throws -> Portfolio = {
+        Portfolio(
+            cashBalance: 0,
+            totalStockValue: 0,
+            totalAsset: 0,
+            profitAmount: 0,
+            profitRate: 0,
+            holdings: []
+        )
+    }
     var fetchCandlesHandler: @Sendable (
         _ stockCode: String,
         _ interval: CandleInterval,
@@ -1209,6 +1236,10 @@ private struct StubStockRepository: StockRepository {
 
     func fetchHolding(stockCode: String) async throws -> StockHolding? {
         try await fetchHoldingHandler(stockCode)
+    }
+
+    func fetchPortfolio() async throws -> Portfolio {
+        try await fetchPortfolioHandler()
     }
 
     func fetchCandles(
