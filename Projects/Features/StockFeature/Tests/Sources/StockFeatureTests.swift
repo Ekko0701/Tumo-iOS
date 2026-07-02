@@ -1057,6 +1057,63 @@ final class StockFeatureTests: XCTestCase {
             $0.candleErrorMessage = "차트를 불러오지 못했습니다."
         }
     }
+
+    // MARK: - PortfolioFeature
+
+    @MainActor
+    final class PortfolioFeatureTests: XCTestCase {
+        private func holding(_ code: String, profit: Int) -> StockHolding {
+            StockHolding(stockCode: code, stockName: "종목\(code)", quantity: 10, averagePrice: 70_000,
+                         currentPrice: 75_000, evaluationAmount: 750_000, profitAmount: profit, profitRate: 7.1)
+        }
+        private func portfolio() -> Portfolio {
+            Portfolio(cashBalance: 9_250_000, totalStockValue: 750_000, totalAsset: 10_000_000,
+                      profitAmount: 50_000, profitRate: 0.5, holdings: [holding("005930", profit: 50_000)])
+        }
+
+        func test_onAppear_loadsPortfolio() async {
+            let p = portfolio()
+            let store = TestStore(initialState: PortfolioFeature.State()) { PortfolioFeature() }
+                withDependencies: {
+                $0.stockClient.fetchPortfolio = { p }
+            }
+
+            await store.send(.onAppear) { $0.isLoading = true }
+            await store.receive(.portfolioLoaded(p)) {
+                $0.isLoading = false
+                $0.portfolio = p
+            }
+        }
+
+        func test_onAppear_failureSetsError() async {
+            struct Boom: Error {}
+            let store = TestStore(initialState: PortfolioFeature.State()) { PortfolioFeature() }
+                withDependencies: {
+                $0.stockClient.fetchPortfolio = { throw Boom() }
+            }
+
+            await store.send(.onAppear) { $0.isLoading = true }
+            await store.receive(.loadFailed) {
+                $0.isLoading = false
+                $0.errorMessage = "포트폴리오를 불러오지 못했습니다."
+            }
+        }
+
+        func test_holdingTapped_fetchesStockAndPresentsDetail() async {
+            let stock = Stock(stockCode: "005930", stockName: "삼성전자", market: "KOSPI", currentPrice: 75_000,
+                              changePrice: 100, changeRate: Decimal(string: "0.13"), tradeVolume: 1, tradeAmount: 1,
+                              priceChangedAt: "2026-06-30T10:00:00")
+            let store = TestStore(initialState: PortfolioFeature.State()) { PortfolioFeature() }
+                withDependencies: {
+                $0.stockClient.fetchStock = { _ in stock }
+            }
+
+            await store.send(.holdingTapped("005930"))
+            await store.receive(.stockLoaded(stock)) {
+                $0.detail = StockDetailFeature.State(stock: stock)
+            }
+        }
+    }
 }
 
 private struct StubStockDataSource: StockDataSource {
