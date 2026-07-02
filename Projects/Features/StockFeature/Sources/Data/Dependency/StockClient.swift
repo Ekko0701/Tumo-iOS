@@ -27,6 +27,8 @@ struct StockClient: Sendable {
 
     var fetchHolding: @Sendable (_ stockCode: String) async throws -> StockHolding?
 
+    var fetchPortfolio: @Sendable () async throws -> Portfolio
+
     var fetchCandles: @Sendable (
         _ stockCode: String,
         _ interval: CandleInterval,
@@ -54,6 +56,7 @@ struct StockClient: Sendable {
             _ stockCode: String
         ) -> AsyncThrowingStream<StockOrderBookEvent, Error>,
         fetchHolding: @escaping @Sendable (_ stockCode: String) async throws -> StockHolding?,
+        fetchPortfolio: @escaping @Sendable () async throws -> Portfolio,
         fetchCandles: @escaping @Sendable (
             _ stockCode: String,
             _ interval: CandleInterval,
@@ -67,6 +70,7 @@ struct StockClient: Sendable {
         self.observeRealtimePrices = observeRealtimePrices
         self.observeOrderBook = observeOrderBook
         self.fetchHolding = fetchHolding
+        self.fetchPortfolio = fetchPortfolio
         self.fetchCandles = fetchCandles
     }
 }
@@ -79,6 +83,7 @@ extension StockClient {
         observeRealtimePricesUsecase: any ObserveRealtimePricesUsecase,
         observeOrderBookUsecase: any ObserveOrderBookUsecase,
         fetchHoldingUsecase: any FetchHoldingUsecase,
+        fetchPortfolioUsecase: any FetchPortfolioUsecase,
         fetchCandlesUsecase: any FetchCandlesUsecase
     ) -> StockClient {
         StockClient(
@@ -104,6 +109,9 @@ extension StockClient {
             },
             fetchHolding: { stockCode in
                 try await fetchHoldingUsecase.execute(stockCode: stockCode)
+            },
+            fetchPortfolio: {
+                try await fetchPortfolioUsecase.execute()
             },
             fetchCandles: { stockCode, interval, from, to in
                 try await fetchCandlesUsecase.execute(

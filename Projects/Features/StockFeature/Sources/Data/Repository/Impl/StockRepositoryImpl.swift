@@ -94,6 +94,11 @@ struct StockRepositoryImpl: StockRepository {
             .map { $0.toEntity() }
     }
 
+    func fetchPortfolio() async throws -> Portfolio {
+        let responseDTO = try await stockDataSource.fetchPortfolio()
+        return responseDTO.toPortfolio()
+    }
+
     func fetchCandles(
         stockCode: String,
         interval: CandleInterval,
@@ -179,6 +184,19 @@ private extension StockOrderBookPayloadDTO {
             askLevels: orderBook.askLevels.map { StockOrderBookLevel(price: $0.price, volume: $0.volume) },
             bidLevels: orderBook.bidLevels.map { StockOrderBookLevel(price: $0.price, volume: $0.volume) },
             orderBookChangedAt: orderBook.orderBookChangedAt
+        )
+    }
+}
+
+private extension PortfolioResponseDTO {
+    func toPortfolio() -> Portfolio {
+        Portfolio(
+            cashBalance: cashBalance,
+            totalStockValue: totalStockValue,
+            totalAsset: totalAsset,
+            profitAmount: profitAmount,
+            profitRate: profitRate,
+            holdings: holdings.map { $0.toEntity() }
         )
     }
 }
