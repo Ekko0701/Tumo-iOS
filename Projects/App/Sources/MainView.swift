@@ -74,7 +74,10 @@ private struct MainTabContentView: View {
         case .orders:
             OrderView()
 
-        case .home, .portfolio, .my:
+        case .portfolio:
+            PortfolioView()
+
+        case .home, .my:
             placeholder
         }
     }
