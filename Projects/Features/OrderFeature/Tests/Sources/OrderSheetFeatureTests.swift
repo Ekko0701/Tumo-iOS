@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import CoreNetwork
 import XCTest
 @testable import OrderFeature
 
@@ -60,6 +61,25 @@ final class OrderSheetFeatureTests: XCTestCase {
         await store.receive(.orderFailed("주문에 실패했습니다.")) {
             $0.isSubmitting = false
             $0.errorMessage = "주문에 실패했습니다."
+        }
+    }
+
+    func test_serverError_usesServerMessage() async {
+        let serverError = NetworkError.server(
+            ErrorResponse(code: "INSUFFICIENT_HOLDING", message: "보유 수량이 부족합니다.", fieldErrors: []),
+            statusCode: 400
+        )
+        let store = TestStore(
+            initialState: OrderSheetFeature.State(
+                stockCode: "005930", stockName: "삼성전자", currentPrice: 80_000,
+                mode: .sell, ownedQuantity: 10, quantityText: "2")
+        ) { OrderSheetFeature() }
+        store.dependencies.orderClient.sell = { _, _ in throw serverError }
+
+        await store.send(.submitTapped) { $0.isSubmitting = true; $0.errorMessage = nil }
+        await store.receive(.orderFailed("보유 수량이 부족합니다.")) {
+            $0.isSubmitting = false
+            $0.errorMessage = "보유 수량이 부족합니다."
         }
     }
 }

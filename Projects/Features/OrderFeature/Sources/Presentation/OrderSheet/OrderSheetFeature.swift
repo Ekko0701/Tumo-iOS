@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import CoreNetwork
 
 @Reducer
 public struct OrderSheetFeature {
@@ -113,12 +114,16 @@ public struct OrderSheetFeature {
         }
     }
 
-    /// 백엔드 에러를 사용자 메시지로 변환.
+    /// 백엔드 에러를 사용자 메시지로 변환한다.
+    ///
+    /// 서버가 공통 에러 응답(`NetworkError.server`)을 내려준 경우 그 `message`를 그대로 노출한다.
+    /// 백엔드가 `INSUFFICIENT_HOLDING`("보유 수량이 부족합니다.")·`INSUFFICIENT_CASH`·
+    /// `STOCK_PRICE_UNAVAILABLE`·`ORDER_CONFLICT` 등에 대해 사용자용 한국어 메시지를 제공하므로
+    /// 그 메시지를 신뢰한다. 그 외(네트워크 실패 등)에는 일반 문구로 폴백한다.
     private static func message(for error: Error) -> String {
-        // 구현 시 Projects/Core/CoreNetwork/Sources/Error/NetworkError.swift 를 읽어
-        // 서버 ErrorResponse(code/message)를 꺼낼 수 있으면 그 message를 사용
-        // (INSUFFICIENT_HOLDING / INSUFFICIENT_CASH / STOCK_PRICE_UNAVAILABLE / ORDER_CONFLICT),
-        // 불가하면 아래 기본 문구로 폴백한다.
+        if case let NetworkError.server(response, _) = error {
+            return response.message
+        }
         return "주문에 실패했습니다."
     }
 }
