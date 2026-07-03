@@ -11,7 +11,7 @@ enum StockAPI: TargetType {
     case candles(stockCode: String, interval: CandleInterval, from: String, to: String)
 
     var baseURL: URL {
-        URL(string: "http://localhost:8080")!
+        TumoBackend.baseURL
     }
 
     var path: String {

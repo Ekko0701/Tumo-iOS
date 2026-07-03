@@ -8,7 +8,7 @@ enum OrderAPI: TargetType {
     case orderHistory(page: Int, size: Int)
 
     var baseURL: URL {
-        URL(string: "http://localhost:8080")!
+        TumoBackend.baseURL
     }
 
     var path: String {
