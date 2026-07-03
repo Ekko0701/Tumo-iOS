@@ -127,6 +127,17 @@ extension StockClient {
 
 private enum StockClientKey: DependencyKey {
     static let liveValue = StockAssembly.live()
+
+    static let testValue = StockClient(
+        fetchStocks: { _, _, _ in fatalError("unimplemented") },
+        fetchStockRankings: { _, _, _, _ in fatalError("unimplemented") },
+        fetchStock: { _ in fatalError("unimplemented") },
+        observeRealtimePrices: { _ in .never },
+        observeOrderBook: { _ in .never },
+        fetchHolding: { _ in fatalError("unimplemented") },
+        fetchPortfolio: { fatalError("unimplemented") },
+        fetchCandles: { _, _, _, _ in fatalError("unimplemented") }
+    )
 }
 
 extension DependencyValues {
