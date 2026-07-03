@@ -1,15 +1,15 @@
 import ComposableArchitecture
 
 /// TCA Reducer에서 사용할 주문 API 의존성.
-struct OrderClient: Sendable {
+public struct OrderClient: Sendable {
     /// 주식 매수 API.
-    var buy: @Sendable (_ stockCode: String, _ quantity: Int) async throws -> Order
+    public var buy: @Sendable (_ stockCode: String, _ quantity: Int) async throws -> Order
     /// 주식 매도 API.
-    var sell: @Sendable (_ stockCode: String, _ quantity: Int) async throws -> Order
+    public var sell: @Sendable (_ stockCode: String, _ quantity: Int) async throws -> Order
     /// 주문 내역 조회 API.
-    var history: @Sendable (_ page: Int, _ size: Int) async throws -> OrderPage
+    public var history: @Sendable (_ page: Int, _ size: Int) async throws -> OrderPage
 
-    init(
+    public init(
         buy: @escaping @Sendable (_ stockCode: String, _ quantity: Int) async throws -> Order,
         sell: @escaping @Sendable (_ stockCode: String, _ quantity: Int) async throws -> Order,
         history: @escaping @Sendable (_ page: Int, _ size: Int) async throws -> OrderPage
@@ -45,7 +45,7 @@ private enum OrderClientKey: DependencyKey {
 }
 
 extension DependencyValues {
-    var orderClient: OrderClient {
+    public var orderClient: OrderClient {
         get { self[OrderClientKey.self] }
         set { self[OrderClientKey.self] = newValue }
     }

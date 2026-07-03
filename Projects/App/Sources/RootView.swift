@@ -20,7 +20,7 @@ struct RootView: View {
                 )
 
             case .main:
-                MainView()
+                MainView(onLoggedOut: { store.send(.logout) })
             }
         }
         .task {

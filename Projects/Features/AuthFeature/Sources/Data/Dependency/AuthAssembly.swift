@@ -8,6 +8,7 @@ import TumoNetwork
 enum AuthAssembly {
     static func live() -> AuthClient {
         let provider: Provider<AuthAPI> = TumoProviderFactory.live.publicProvider()
+        let authorizedProvider: Provider<AuthAPI> = TumoProviderFactory.live.authorizedProvider()
 
         let loginDataSource = LoginDataSourceImpl(provider: provider)
         let signupDataSource = SignupDataSourceImpl(provider: provider)
@@ -34,10 +35,24 @@ enum AuthAssembly {
             authTokenRepository: authTokenRepository
         )
 
+        let fetchMeDataSource = FetchMeDataSourceImpl(provider: authorizedProvider)
+        let logoutDataSource = LogoutDataSourceImpl(provider: authorizedProvider)
+
+        let fetchMeRepository = FetchMeRepositoryImpl(fetchMeDataSource: fetchMeDataSource)
+        let logoutRepository = LogoutRepositoryImpl(logoutDataSource: logoutDataSource)
+
+        let fetchMeUsecase = FetchMeUsecaseImpl(fetchMeRepository: fetchMeRepository)
+        let logoutUsecase = LogoutUsecaseImpl(
+            logoutRepository: logoutRepository,
+            authTokenRepository: authTokenRepository
+        )
+
         return AuthClient.live(
             loginUsecase: loginUsecase,
             signupUsecase: signupUsecase,
-            refreshSessionUsecase: refreshSessionUsecase
+            refreshSessionUsecase: refreshSessionUsecase,
+            fetchMeUsecase: fetchMeUsecase,
+            logoutUsecase: logoutUsecase
         )
     }
 }

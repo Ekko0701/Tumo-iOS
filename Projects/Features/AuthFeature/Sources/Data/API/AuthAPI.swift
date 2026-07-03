@@ -8,6 +8,8 @@ enum AuthAPI: TargetType {
     case login(LoginRequestDTO)
     case signup(SignupRequestDTO)
     case refreshToken(TokenRefreshRequestDTO)
+    case me
+    case logout
 
     var baseURL: URL {
         TumoBackend.baseURL
@@ -23,13 +25,21 @@ enum AuthAPI: TargetType {
 
         case .refreshToken:
             "/api/v1/auth/token/refresh"
+
+        case .me:
+            "/api/v1/users/me"
+
+        case .logout:
+            "/api/v1/auth/logout"
         }
     }
 
     var method: HTTPMethod {
         switch self {
-        case .login, .signup, .refreshToken:
+        case .login, .signup, .refreshToken, .logout:
             .post
+        case .me:
+            .get
         }
     }
 
@@ -43,6 +53,9 @@ enum AuthAPI: TargetType {
 
         case .refreshToken(let requestDTO):
             .requestJSONEncodable(AnyEncodable(requestDTO))
+
+        case .me, .logout:
+            .requestPlain
         }
     }
 }

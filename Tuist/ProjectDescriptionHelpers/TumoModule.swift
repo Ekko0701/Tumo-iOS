@@ -11,6 +11,8 @@ public enum TumoModule: String, CaseIterable {
     case stockFeature = "StockFeature"
     case orderFeature = "OrderFeature"
     case portfolioFeature = "PortfolioFeature"
+    case homeFeature = "HomeFeature"
+    case myInfoFeature = "MyInfoFeature"
 
     public var name: String {
         rawValue
@@ -46,12 +48,16 @@ public enum TumoModule: String, CaseIterable {
             "Projects/Features/OrderFeature"
         case .portfolioFeature:
             "Projects/Features/PortfolioFeature"
+        case .homeFeature:
+            "Projects/Features/HomeFeature"
+        case .myInfoFeature:
+            "Projects/Features/MyInfoFeature"
         }
     }
 
     public var isFeature: Bool {
         switch self {
-        case .authFeature, .stockFeature, .orderFeature, .portfolioFeature:
+        case .authFeature, .stockFeature, .orderFeature, .portfolioFeature, .homeFeature, .myInfoFeature:
             true
         case .app, .coreNetwork, .coreStorage, .tumoNetwork, .coreModels, .coreDesignSystem:
             false

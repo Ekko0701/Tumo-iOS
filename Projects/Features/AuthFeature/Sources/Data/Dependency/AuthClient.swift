@@ -8,15 +8,21 @@ public struct AuthClient: Sendable {
     public var login: @Sendable (_ email: String, _ password: String) async throws -> AuthToken
     public var signup: @Sendable (_ email: String, _ password: String, _ nickname: String) async throws -> AuthUser
     public var refreshSession: @Sendable () async throws -> AuthToken
+    public var fetchMe: @Sendable () async throws -> AuthUser
+    public var logout: @Sendable () async throws -> Void
 
     public init(
         login: @escaping @Sendable (_ email: String, _ password: String) async throws -> AuthToken,
         signup: @escaping @Sendable (_ email: String, _ password: String, _ nickname: String) async throws -> AuthUser,
-        refreshSession: @escaping @Sendable () async throws -> AuthToken
+        refreshSession: @escaping @Sendable () async throws -> AuthToken,
+        fetchMe: @escaping @Sendable () async throws -> AuthUser,
+        logout: @escaping @Sendable () async throws -> Void
     ) {
         self.login = login
         self.signup = signup
         self.refreshSession = refreshSession
+        self.fetchMe = fetchMe
+        self.logout = logout
     }
 }
 
@@ -24,7 +30,9 @@ extension AuthClient {
     static func live(
         loginUsecase: any LoginUsecase,
         signupUsecase: any SignupUsecase,
-        refreshSessionUsecase: any RefreshSessionUsecase
+        refreshSessionUsecase: any RefreshSessionUsecase,
+        fetchMeUsecase: any FetchMeUsecase,
+        logoutUsecase: any LogoutUsecase
     ) -> AuthClient {
         AuthClient(
             login: { email, password in
@@ -42,6 +50,12 @@ extension AuthClient {
             },
             refreshSession: {
                 try await refreshSessionUsecase.execute()
+            },
+            fetchMe: {
+                try await fetchMeUsecase.execute()
+            },
+            logout: {
+                try await logoutUsecase.execute()
             }
         )
     }
@@ -49,6 +63,14 @@ extension AuthClient {
 
 private enum AuthClientKey: DependencyKey {
     static let liveValue = AuthAssembly.live()
+
+    static let testValue = AuthClient(
+        login: { _, _ in fatalError("unimplemented") },
+        signup: { _, _, _ in fatalError("unimplemented") },
+        refreshSession: { fatalError("unimplemented") },
+        fetchMe: { fatalError("unimplemented") },
+        logout: { fatalError("unimplemented") }
+    )
 }
 
 public extension DependencyValues {

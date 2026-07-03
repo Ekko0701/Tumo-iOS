@@ -353,3 +353,49 @@ private struct StubTokenRefreshRepository: TokenRefreshRepository {
         try await refreshTokenHandler(requestDTO)
     }
 }
+
+@MainActor
+final class AuthUserUsecaseTests: XCTestCase {
+    private struct StubFetchMeRepository: FetchMeRepository {
+        let user: AuthUser
+        func fetchMe() async throws -> AuthUser { user }
+    }
+
+    private struct StubLogoutRepository: LogoutRepository {
+        let error: Error?
+        func logout() async throws { if let error { throw error } }
+    }
+
+    private final class SpyAuthTokenRepository: AuthTokenRepository, @unchecked Sendable {
+        private(set) var deleteCallCount = 0
+        func save(_ authToken: AuthToken) throws {}
+        func load() throws -> AuthToken? { nil }
+        func delete() throws { deleteCallCount += 1 }
+    }
+
+    func test_fetchMe_returnsUser() async throws {
+        let user = AuthUser(id: 1, email: "a@b.com", nickname: "테스터", cashBalance: 10_000_000)
+        let usecase = FetchMeUsecaseImpl(fetchMeRepository: StubFetchMeRepository(user: user))
+        let result = try await usecase.execute()
+        XCTAssertEqual(result, user)
+    }
+
+    func test_logout_success_deletesToken() async throws {
+        let spy = SpyAuthTokenRepository()
+        let usecase = LogoutUsecaseImpl(logoutRepository: StubLogoutRepository(error: nil), authTokenRepository: spy)
+        try await usecase.execute()
+        XCTAssertEqual(spy.deleteCallCount, 1)
+    }
+
+    func test_logout_backendFailure_stillDeletesTokenAndRethrows() async {
+        struct Boom: Error {}
+        let spy = SpyAuthTokenRepository()
+        let usecase = LogoutUsecaseImpl(logoutRepository: StubLogoutRepository(error: Boom()), authTokenRepository: spy)
+        do {
+            try await usecase.execute()
+            XCTFail("should rethrow")
+        } catch {
+            XCTAssertEqual(spy.deleteCallCount, 1)
+        }
+    }
+}
