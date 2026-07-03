@@ -21,6 +21,7 @@ struct AppFeature {
         case appStarted
         case sessionRefreshSucceeded
         case sessionRefreshFailed
+        case logout
         case auth(AuthFeature.Action)
     }
 
@@ -51,6 +52,11 @@ struct AppFeature {
 
             case .sessionRefreshFailed:
                 state.route = .auth
+                return .none
+
+            case .logout:
+                state.route = .auth
+                state.auth = AuthFeature.State()
                 return .none
 
             case .auth(.login(.loginSucceeded)):

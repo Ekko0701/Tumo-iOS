@@ -1,15 +1,18 @@
+import HomeFeature
+import MyInfoFeature
 import OrderFeature
 import StockFeature
 import SwiftUI
 
 struct MainView: View {
+    let onLoggedOut: () -> Void
     @State private var selectedTab: MainTab = .home
 
     var body: some View {
         TabView(selection: $selectedTab) {
             ForEach(MainTab.allCases) { tab in
                 NavigationStack {
-                    MainTabContentView(tab: tab)
+                    MainTabContentView(tab: tab, onLoggedOut: onLoggedOut)
                 }
                 .tabItem {
                     Label(tab.title, systemImage: tab.systemImage)
@@ -65,9 +68,13 @@ private enum MainTab: String, CaseIterable, Identifiable {
 
 private struct MainTabContentView: View {
     let tab: MainTab
+    let onLoggedOut: () -> Void
 
     var body: some View {
         switch tab {
+        case .home:
+            HomeView()
+
         case .stocks:
             StockView()
 
@@ -77,35 +84,9 @@ private struct MainTabContentView: View {
         case .portfolio:
             PortfolioView()
 
-        case .home, .my:
-            placeholder
+        case .my:
+            MyInfoView(onLoggedOut: onLoggedOut)
         }
-    }
-
-    private var placeholder: some View {
-        ZStack {
-            Color.tumoCanvas
-                .ignoresSafeArea()
-
-            VStack(alignment: .leading, spacing: 0) {
-                Text(tab.title)
-                    .font(.system(size: 32, weight: .regular))
-                    .foregroundStyle(Color.tumoInk)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 24)
-                    .padding(.top, 24)
-
-                Spacer()
-
-                Text("Tumo")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(Color.tumoBlue)
-                    .frame(maxWidth: .infinity)
-
-                Spacer()
-            }
-        }
-        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
@@ -116,5 +97,5 @@ private extension Color {
 }
 
 #Preview {
-    MainView()
+    MainView(onLoggedOut: {})
 }
