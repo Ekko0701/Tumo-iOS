@@ -1,42 +1,42 @@
 import ComposableArchitecture
 
 /// TCA Reducer에서 사용할 종목 API 의존성.
-struct StockClient: Sendable {
-    var fetchStocks: @Sendable (
+public struct StockClient: Sendable {
+    public var fetchStocks: @Sendable (
         _ market: StockMarket,
         _ page: Int,
         _ size: Int
     ) async throws -> StockPage
 
-    var fetchStockRankings: @Sendable (
+    public var fetchStockRankings: @Sendable (
         _ market: StockMarket,
         _ type: StockRankingType,
         _ page: Int,
         _ size: Int
     ) async throws -> StockPage
 
-    var fetchStock: @Sendable (_ stockCode: String) async throws -> Stock
+    public var fetchStock: @Sendable (_ stockCode: String) async throws -> Stock
 
-    var observeRealtimePrices: @Sendable (
+    public var observeRealtimePrices: @Sendable (
         _ stockCodes: [String]
     ) -> AsyncThrowingStream<StockRealtimeEvent, Error>
 
-    var observeOrderBook: @Sendable (
+    public var observeOrderBook: @Sendable (
         _ stockCode: String
     ) -> AsyncThrowingStream<StockOrderBookEvent, Error>
 
-    var fetchHolding: @Sendable (_ stockCode: String) async throws -> StockHolding?
+    public var fetchHolding: @Sendable (_ stockCode: String) async throws -> StockHolding?
 
-    var fetchPortfolio: @Sendable () async throws -> Portfolio
+    public var fetchPortfolio: @Sendable () async throws -> Portfolio
 
-    var fetchCandles: @Sendable (
+    public var fetchCandles: @Sendable (
         _ stockCode: String,
         _ interval: CandleInterval,
         _ from: String,
         _ to: String
     ) async throws -> [StockCandle]
 
-    init(
+    public init(
         fetchStocks: @escaping @Sendable (
             _ market: StockMarket,
             _ page: Int,
@@ -130,7 +130,7 @@ private enum StockClientKey: DependencyKey {
 }
 
 extension DependencyValues {
-    var stockClient: StockClient {
+    public var stockClient: StockClient {
         get { self[StockClientKey.self] }
         set { self[StockClientKey.self] = newValue }
     }
