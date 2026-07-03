@@ -63,6 +63,14 @@ extension AuthClient {
 
 private enum AuthClientKey: DependencyKey {
     static let liveValue = AuthAssembly.live()
+
+    static let testValue = AuthClient(
+        login: { _, _ in fatalError("unimplemented") },
+        signup: { _, _, _ in fatalError("unimplemented") },
+        refreshSession: { fatalError("unimplemented") },
+        fetchMe: { fatalError("unimplemented") },
+        logout: { fatalError("unimplemented") }
+    )
 }
 
 public extension DependencyValues {
