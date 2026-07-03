@@ -10,6 +10,8 @@ let project = Project.tumoApp(
         .module(.authFeature),
         .module(.stockFeature),
         .module(.orderFeature),
-        .module(.portfolioFeature)
+        .module(.portfolioFeature),
+        .module(.homeFeature),
+        .module(.myInfoFeature)
     ]
 )
