@@ -1,3 +1,4 @@
+import CoreDesignSystem
 import HomeFeature
 import MyInfoFeature
 import OrderFeature
@@ -88,12 +89,6 @@ private struct MainTabContentView: View {
             MyInfoView(onLoggedOut: onLoggedOut)
         }
     }
-}
-
-private extension Color {
-    static let tumoBlue = Color(red: 0, green: 82.0 / 255.0, blue: 1)
-    static let tumoInk = Color(red: 10.0 / 255.0, green: 11.0 / 255.0, blue: 13.0 / 255.0)
-    static let tumoCanvas = Color.white
 }
 
 #Preview {
