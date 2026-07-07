@@ -56,15 +56,31 @@ public struct StockDetailView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Button {
-                dismiss()
-            } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(Color.tumoInk)
-                    .frame(width: 36, height: 36, alignment: .leading)
+            HStack {
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(Color.tumoInk)
+                        .frame(width: 36, height: 36, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+
+                Spacer()
+
+                if let isWatched = store.isWatched {
+                    Button {
+                        store.send(.starTapped)
+                    } label: {
+                        Image(systemName: isWatched ? "star.fill" : "star")
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundStyle(isWatched ? Color.tumoUp : Color.tumoMuted)
+                            .frame(width: 36, height: 36, alignment: .trailing)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
-            .buttonStyle(.plain)
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {
