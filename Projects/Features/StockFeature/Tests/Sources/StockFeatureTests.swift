@@ -316,6 +316,45 @@ final class StockFeatureTests: XCTestCase {
         await store.send(.onDisappear)
     }
 
+    func testStockFeatureSortOptionChangedLoadsWatchlist() async {
+        let samsung = Stock(
+            stockCode: "005930",
+            stockName: "삼성전자",
+            market: "KOSPI",
+            currentPrice: 75_000,
+            changePrice: 100,
+            changeRate: Decimal(string: "0.13"),
+            tradeVolume: 1_234_567,
+            tradeAmount: 92_592_592_500,
+            priceChangedAt: "2026-05-13T15:30:00"
+        )
+        let watchlistPage = StockPage(stocks: [samsung], page: 0, hasNext: false)
+        let store = TestStore(
+            initialState: StockFeature.State()
+        ) {
+            StockFeature()
+        } withDependencies: {
+            $0.stockClient.fetchWatchlist = { page, size in
+                XCTAssertEqual(page, 0)
+                XCTAssertEqual(size, 30)
+
+                return watchlistPage
+            }
+            $0.stockClient.observeRealtimePrices = { _ in .never }
+        }
+
+        await store.send(.sortOptionChanged(.watchlist)) {
+            $0.sortOption = .watchlist
+            $0.isLoading = true
+        }
+        await store.receive(.stocksLoaded(watchlistPage)) {
+            $0.isLoading = false
+            $0.stocks = [samsung]
+        }
+        await store.receive(.startRealtimeUpdates)
+        await store.send(.onDisappear)
+    }
+
     func testStockFeatureRealtimePriceUpdatesOnlyMatchingStock() async {
         let samsung = Stock(
             stockCode: "005930",

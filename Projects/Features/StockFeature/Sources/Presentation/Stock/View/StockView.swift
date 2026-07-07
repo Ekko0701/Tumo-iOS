@@ -62,7 +62,7 @@ public struct StockView: View {
                 store.send(.refreshButtonTapped)
             }
         } else if store.isEmptyStateVisible {
-            StockEmptyState()
+            StockEmptyState(sortOption: store.sortOption)
         } else {
             let stocks = store.displayedStocks
 

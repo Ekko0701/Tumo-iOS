@@ -2,12 +2,14 @@ import ComposableArchitecture
 import CoreNetwork
 import Foundation
 
-/// 종목 리스트 랭킹 기준. 백엔드 `StockRankingType`으로 변환해 서버 랭킹 API를 호출한다.
+/// 종목 리스트 정렬/필터 옵션. 랭킹 옵션은 백엔드 `StockRankingType`으로 변환해 서버 랭킹 API를 호출하고,
+/// `.watchlist`는 관심종목 API를 호출한다.
 public enum StockSortOption: String, CaseIterable, Equatable, Sendable, Identifiable {
     case tradeAmount
     case tradeVolume
     case rising
     case falling
+    case watchlist
 
     public var id: String { rawValue }
 
@@ -21,10 +23,12 @@ public enum StockSortOption: String, CaseIterable, Equatable, Sendable, Identifi
             "상승률"
         case .falling:
             "하락률"
+        case .watchlist:
+            "관심"
         }
     }
 
-    var rankingType: StockRankingType {
+    var rankingType: StockRankingType? {
         switch self {
         case .tradeAmount:
             .tradeAmount
@@ -34,6 +38,8 @@ public enum StockSortOption: String, CaseIterable, Equatable, Sendable, Identifi
             .rising
         case .falling:
             .falling
+        case .watchlist:
+            nil
         }
     }
 }
@@ -232,7 +238,25 @@ public struct StockFeature {
         state.isLoading = true
         state.errorMessage = nil
 
-        return fetchRankings(rankingType: state.sortOption.rankingType) { .stocksLoaded($0) } onFailure: {
+        // .watchlist는 별도 경로로 처리한다.
+        if state.sortOption == .watchlist {
+            let stockClient = stockClient
+            return .run { send in
+                do {
+                    let page = try await stockClient.fetchWatchlist(0, 30)
+                    await send(.stocksLoaded(page))
+                } catch {
+                    await send(.stocksFailed("관심종목을 불러오지 못했습니다."))
+                }
+            }
+        }
+
+        // 랭킹 옵션들은 기존 경로
+        guard let rankingType = state.sortOption.rankingType else {
+            return .none
+        }
+
+        return fetchRankings(rankingType: rankingType) { .stocksLoaded($0) } onFailure: {
             .stocksFailed("종목 랭킹을 불러오지 못했습니다.")
         }
     }
