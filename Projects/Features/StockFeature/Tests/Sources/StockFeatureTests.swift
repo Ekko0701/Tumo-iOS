@@ -700,10 +700,15 @@ final class StockFeatureTests: XCTestCase {
                     continuation.yield(.connected)
                 }
             }
+            $0.stockClient.fetchWatched = { _ in false }
         }
 
         await store.send(.onAppear)
         await store.receive(.startPriceStream)
+        await store.receive(.loadWatched)
+        await store.receive(.watchedLoaded(false)) {
+            $0.isWatched = false
+        }
         await store.receive(.priceStreamConnected)
         await store.send(.onDisappear)
     }
@@ -1056,6 +1061,38 @@ final class StockFeatureTests: XCTestCase {
             $0.isCandleLoading = false
             $0.candleErrorMessage = "차트를 불러오지 못했습니다."
         }
+    }
+
+    // MARK: - Watchlist
+
+    func test_watchdetail_starTapped_optimisticallyAddsThenReverts_onFailure() async {
+        struct Boom: Error {}
+        let store = TestStore(
+            initialState: StockDetailFeature.State(stock: Self.sampleStock, isWatched: false)
+        ) { StockDetailFeature() } withDependencies: {
+            $0.stockClient.addToWatchlist = { _ in throw Boom() }
+        }
+        await store.send(.starTapped) { $0.isWatched = true }          // 낙관적 반영
+        await store.receive(.watchlistToggleFailed(false)) { $0.isWatched = false } // 원복
+    }
+
+    func test_watchdetail_starTapped_optimisticallyRemoves_success() async {
+        let store = TestStore(
+            initialState: StockDetailFeature.State(stock: Self.sampleStock, isWatched: true)
+        ) { StockDetailFeature() } withDependencies: {
+            $0.stockClient.removeFromWatchlist = { _ in }
+        }
+        await store.send(.starTapped) { $0.isWatched = false }         // 낙관적 반영, 성공 시 후속 액션 없음
+    }
+
+    func test_watchdetail_loadWatched_setsState() async {
+        let store = TestStore(
+            initialState: StockDetailFeature.State(stock: Self.sampleStock)
+        ) { StockDetailFeature() } withDependencies: {
+            $0.stockClient.fetchWatched = { _ in true }
+        }
+        await store.send(.loadWatched)
+        await store.receive(.watchedLoaded(true)) { $0.isWatched = true }
     }
 
     // MARK: - PortfolioFeature
