@@ -1169,6 +1169,12 @@ private struct StubStockDataSource: StockDataSource {
     ) async throws -> StockCandleListResponseDTO = { stockCode, interval, _, _ in
         StockCandleListResponseDTO(stockCode: stockCode, interval: interval.rawValue, candles: [])
     }
+    var fetchWatchlistHandler: @Sendable (_ page: Int, _ size: Int) async throws -> StockPageResponseDTO = { _, _ in
+        StockPageResponseDTO(stocks: [], page: 0, size: 30, hasNext: false)
+    }
+    var fetchWatchedHandler: @Sendable (_ stockCode: String) async throws -> Bool = { _ in false }
+    var addToWatchlistHandler: @Sendable (_ stockCode: String) async throws -> Void = { _ in }
+    var removeFromWatchlistHandler: @Sendable (_ stockCode: String) async throws -> Void = { _ in }
 
     func fetchStocks(
         market: StockMarket,
@@ -1210,6 +1216,22 @@ private struct StubStockDataSource: StockDataSource {
         to: String
     ) async throws -> StockCandleListResponseDTO {
         try await fetchCandlesHandler(stockCode, interval, from, to)
+    }
+
+    func fetchWatchlist(page: Int, size: Int) async throws -> StockPageResponseDTO {
+        try await fetchWatchlistHandler(page, size)
+    }
+
+    func fetchWatched(stockCode: String) async throws -> Bool {
+        try await fetchWatchedHandler(stockCode)
+    }
+
+    func addToWatchlist(stockCode: String) async throws {
+        try await addToWatchlistHandler(stockCode)
+    }
+
+    func removeFromWatchlist(stockCode: String) async throws {
+        try await removeFromWatchlistHandler(stockCode)
     }
 }
 
@@ -1261,6 +1283,12 @@ private struct StubStockRepository: StockRepository {
         _ from: String,
         _ to: String
     ) async throws -> [StockCandle] = { _, _, _, _ in [] }
+    var fetchWatchlistHandler: @Sendable (_ page: Int, _ size: Int) async throws -> StockPage = { _, _ in
+        StockPage(stocks: [], page: 0, hasNext: false)
+    }
+    var fetchWatchedHandler: @Sendable (_ stockCode: String) async throws -> Bool = { _ in false }
+    var addToWatchlistHandler: @Sendable (_ stockCode: String) async throws -> Void = { _ in }
+    var removeFromWatchlistHandler: @Sendable (_ stockCode: String) async throws -> Void = { _ in }
 
     func fetchStocks(
         market: StockMarket,
@@ -1306,5 +1334,21 @@ private struct StubStockRepository: StockRepository {
         to: String
     ) async throws -> [StockCandle] {
         try await fetchCandlesHandler(stockCode, interval, from, to)
+    }
+
+    func fetchWatchlist(page: Int, size: Int) async throws -> StockPage {
+        try await fetchWatchlistHandler(page, size)
+    }
+
+    func fetchWatched(stockCode: String) async throws -> Bool {
+        try await fetchWatchedHandler(stockCode)
+    }
+
+    func addToWatchlist(stockCode: String) async throws {
+        try await addToWatchlistHandler(stockCode)
+    }
+
+    func removeFromWatchlist(stockCode: String) async throws {
+        try await removeFromWatchlistHandler(stockCode)
     }
 }

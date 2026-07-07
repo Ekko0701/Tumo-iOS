@@ -33,4 +33,16 @@ protocol StockRepository: Sendable {
         from: String,
         to: String
     ) async throws -> [StockCandle]
+
+    /// 관심 종목 목록을 page 단위로 조회한다.
+    func fetchWatchlist(page: Int, size: Int) async throws -> StockPage
+
+    /// 지정 종목이 관심 종목인지 확인한다.
+    func fetchWatched(stockCode: String) async throws -> Bool
+
+    /// 지정 종목을 관심 종목에 추가한다.
+    func addToWatchlist(stockCode: String) async throws
+
+    /// 지정 종목을 관심 종목에서 제거한다.
+    func removeFromWatchlist(stockCode: String) async throws
 }

@@ -114,6 +114,23 @@ struct StockRepositoryImpl: StockRepository {
 
         return responseDTO.toEntities()
     }
+
+    func fetchWatchlist(page: Int, size: Int) async throws -> StockPage {
+        let responseDTO = try await stockDataSource.fetchWatchlist(page: page, size: size)
+        return responseDTO.toEntity()
+    }
+
+    func fetchWatched(stockCode: String) async throws -> Bool {
+        try await stockDataSource.fetchWatched(stockCode: stockCode)
+    }
+
+    func addToWatchlist(stockCode: String) async throws {
+        try await stockDataSource.addToWatchlist(stockCode: stockCode)
+    }
+
+    func removeFromWatchlist(stockCode: String) async throws {
+        try await stockDataSource.removeFromWatchlist(stockCode: stockCode)
+    }
 }
 
 /// 백엔드 캔들 `candleTime`(타임존 없는 LocalDateTime) 파싱용 KST 포맷터.
