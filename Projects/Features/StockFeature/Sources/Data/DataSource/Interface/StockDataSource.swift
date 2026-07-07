@@ -30,4 +30,16 @@ protocol StockDataSource: Sendable {
         from: String,
         to: String
     ) async throws -> StockCandleListResponseDTO
+
+    /// 관심종목 목록을 조회한다. (백엔드가 종목 목록과 동일한 StockPageResponse 형태로 응답)
+    func fetchWatchlist(page: Int, size: Int) async throws -> StockPageResponseDTO
+
+    /// 종목의 관심 등록 여부를 조회한다.
+    func fetchWatched(stockCode: String) async throws -> Bool
+
+    /// 관심종목을 추가한다.
+    func addToWatchlist(stockCode: String) async throws
+
+    /// 관심종목을 제거한다.
+    func removeFromWatchlist(stockCode: String) async throws
 }

@@ -111,17 +111,27 @@ struct StockErrorState: View {
 
 /// 조회 가능한 종목이 없을 때의 빈 상태.
 struct StockEmptyState: View {
+    let sortOption: StockSortOption
+
     var body: some View {
         VStack(spacing: 10) {
             Image(systemName: "chart.line.uptrend.xyaxis")
                 .font(.system(size: 32, weight: .regular))
                 .foregroundStyle(Color.tumoMutedSoft)
 
-            Text("조회 가능한 종목이 없습니다.")
+            Text(emptyMessage)
                 .font(.system(size: 15, weight: .regular))
                 .foregroundStyle(Color.tumoMuted)
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 96)
+    }
+
+    private var emptyMessage: String {
+        if sortOption == .watchlist {
+            "관심종목이 없어요. 종목 상세에서 ★을 눌러 추가해 보세요."
+        } else {
+            "조회 가능한 종목이 없습니다."
+        }
     }
 }

@@ -316,6 +316,45 @@ final class StockFeatureTests: XCTestCase {
         await store.send(.onDisappear)
     }
 
+    func testStockFeatureSortOptionChangedLoadsWatchlist() async {
+        let samsung = Stock(
+            stockCode: "005930",
+            stockName: "삼성전자",
+            market: "KOSPI",
+            currentPrice: 75_000,
+            changePrice: 100,
+            changeRate: Decimal(string: "0.13"),
+            tradeVolume: 1_234_567,
+            tradeAmount: 92_592_592_500,
+            priceChangedAt: "2026-05-13T15:30:00"
+        )
+        let watchlistPage = StockPage(stocks: [samsung], page: 0, hasNext: false)
+        let store = TestStore(
+            initialState: StockFeature.State()
+        ) {
+            StockFeature()
+        } withDependencies: {
+            $0.stockClient.fetchWatchlist = { page, size in
+                XCTAssertEqual(page, 0)
+                XCTAssertEqual(size, 30)
+
+                return watchlistPage
+            }
+            $0.stockClient.observeRealtimePrices = { _ in .never }
+        }
+
+        await store.send(.sortOptionChanged(.watchlist)) {
+            $0.sortOption = .watchlist
+            $0.isLoading = true
+        }
+        await store.receive(.stocksLoaded(watchlistPage)) {
+            $0.isLoading = false
+            $0.stocks = [samsung]
+        }
+        await store.receive(.startRealtimeUpdates)
+        await store.send(.onDisappear)
+    }
+
     func testStockFeatureRealtimePriceUpdatesOnlyMatchingStock() async {
         let samsung = Stock(
             stockCode: "005930",
@@ -700,10 +739,15 @@ final class StockFeatureTests: XCTestCase {
                     continuation.yield(.connected)
                 }
             }
+            $0.stockClient.fetchWatched = { _ in false }
         }
 
         await store.send(.onAppear)
         await store.receive(.startPriceStream)
+        await store.receive(.loadWatched)
+        await store.receive(.watchedLoaded(false)) {
+            $0.isWatched = false
+        }
         await store.receive(.priceStreamConnected)
         await store.send(.onDisappear)
     }
@@ -1058,6 +1102,38 @@ final class StockFeatureTests: XCTestCase {
         }
     }
 
+    // MARK: - Watchlist
+
+    func test_watchdetail_starTapped_optimisticallyAddsThenReverts_onFailure() async {
+        struct Boom: Error {}
+        let store = TestStore(
+            initialState: StockDetailFeature.State(stock: Self.sampleStock, isWatched: false)
+        ) { StockDetailFeature() } withDependencies: {
+            $0.stockClient.addToWatchlist = { _ in throw Boom() }
+        }
+        await store.send(.starTapped) { $0.isWatched = true }          // 낙관적 반영
+        await store.receive(.watchlistToggleFailed(false)) { $0.isWatched = false } // 원복
+    }
+
+    func test_watchdetail_starTapped_optimisticallyRemoves_success() async {
+        let store = TestStore(
+            initialState: StockDetailFeature.State(stock: Self.sampleStock, isWatched: true)
+        ) { StockDetailFeature() } withDependencies: {
+            $0.stockClient.removeFromWatchlist = { _ in }
+        }
+        await store.send(.starTapped) { $0.isWatched = false }         // 낙관적 반영, 성공 시 후속 액션 없음
+    }
+
+    func test_watchdetail_loadWatched_setsState() async {
+        let store = TestStore(
+            initialState: StockDetailFeature.State(stock: Self.sampleStock)
+        ) { StockDetailFeature() } withDependencies: {
+            $0.stockClient.fetchWatched = { _ in true }
+        }
+        await store.send(.loadWatched)
+        await store.receive(.watchedLoaded(true)) { $0.isWatched = true }
+    }
+
     // MARK: - PortfolioFeature
 
     @MainActor
@@ -1169,6 +1245,12 @@ private struct StubStockDataSource: StockDataSource {
     ) async throws -> StockCandleListResponseDTO = { stockCode, interval, _, _ in
         StockCandleListResponseDTO(stockCode: stockCode, interval: interval.rawValue, candles: [])
     }
+    var fetchWatchlistHandler: @Sendable (_ page: Int, _ size: Int) async throws -> StockPageResponseDTO = { _, _ in
+        StockPageResponseDTO(stocks: [], page: 0, size: 30, hasNext: false)
+    }
+    var fetchWatchedHandler: @Sendable (_ stockCode: String) async throws -> Bool = { _ in false }
+    var addToWatchlistHandler: @Sendable (_ stockCode: String) async throws -> Void = { _ in }
+    var removeFromWatchlistHandler: @Sendable (_ stockCode: String) async throws -> Void = { _ in }
 
     func fetchStocks(
         market: StockMarket,
@@ -1210,6 +1292,22 @@ private struct StubStockDataSource: StockDataSource {
         to: String
     ) async throws -> StockCandleListResponseDTO {
         try await fetchCandlesHandler(stockCode, interval, from, to)
+    }
+
+    func fetchWatchlist(page: Int, size: Int) async throws -> StockPageResponseDTO {
+        try await fetchWatchlistHandler(page, size)
+    }
+
+    func fetchWatched(stockCode: String) async throws -> Bool {
+        try await fetchWatchedHandler(stockCode)
+    }
+
+    func addToWatchlist(stockCode: String) async throws {
+        try await addToWatchlistHandler(stockCode)
+    }
+
+    func removeFromWatchlist(stockCode: String) async throws {
+        try await removeFromWatchlistHandler(stockCode)
     }
 }
 
@@ -1261,6 +1359,12 @@ private struct StubStockRepository: StockRepository {
         _ from: String,
         _ to: String
     ) async throws -> [StockCandle] = { _, _, _, _ in [] }
+    var fetchWatchlistHandler: @Sendable (_ page: Int, _ size: Int) async throws -> StockPage = { _, _ in
+        StockPage(stocks: [], page: 0, hasNext: false)
+    }
+    var fetchWatchedHandler: @Sendable (_ stockCode: String) async throws -> Bool = { _ in false }
+    var addToWatchlistHandler: @Sendable (_ stockCode: String) async throws -> Void = { _ in }
+    var removeFromWatchlistHandler: @Sendable (_ stockCode: String) async throws -> Void = { _ in }
 
     func fetchStocks(
         market: StockMarket,
@@ -1306,5 +1410,21 @@ private struct StubStockRepository: StockRepository {
         to: String
     ) async throws -> [StockCandle] {
         try await fetchCandlesHandler(stockCode, interval, from, to)
+    }
+
+    func fetchWatchlist(page: Int, size: Int) async throws -> StockPage {
+        try await fetchWatchlistHandler(page, size)
+    }
+
+    func fetchWatched(stockCode: String) async throws -> Bool {
+        try await fetchWatchedHandler(stockCode)
+    }
+
+    func addToWatchlist(stockCode: String) async throws {
+        try await addToWatchlistHandler(stockCode)
+    }
+
+    func removeFromWatchlist(stockCode: String) async throws {
+        try await removeFromWatchlistHandler(stockCode)
     }
 }

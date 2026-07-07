@@ -146,4 +146,27 @@ struct StockDataSourceImpl: StockDataSource {
             as: StockCandleListResponseDTO.self
         )
     }
+
+    func fetchWatchlist(page: Int, size: Int) async throws -> StockPageResponseDTO {
+        try await provider.request(
+            .fetchWatchlist(page: page, size: size),
+            as: StockPageResponseDTO.self
+        )
+    }
+
+    func fetchWatched(stockCode: String) async throws -> Bool {
+        let dto = try await provider.request(
+            .fetchWatched(stockCode: stockCode),
+            as: WatchedResponseDTO.self
+        )
+        return dto.watched
+    }
+
+    func addToWatchlist(stockCode: String) async throws {
+        _ = try await provider.requestData(.addToWatchlist(stockCode: stockCode))
+    }
+
+    func removeFromWatchlist(stockCode: String) async throws {
+        _ = try await provider.requestData(.removeFromWatchlist(stockCode: stockCode))
+    }
 }

@@ -56,6 +56,8 @@ public struct StockDetailFeature {
         public var priceRetryCount: Int
         /// 호가 stream 연속 실패 횟수(재연결 backoff).
         public var orderBookRetryCount: Int
+        /// 관심 여부(nil이면 로드 중).
+        public var isWatched: Bool?
         /// 주문 시트 presentation 상태.
         @Presents public var orderSheet: OrderSheetFeature.State?
 
@@ -74,6 +76,7 @@ public struct StockDetailFeature {
             hasMoreCandleHistory: Bool = true,
             priceRetryCount: Int = 0,
             orderBookRetryCount: Int = 0,
+            isWatched: Bool? = nil,
             orderSheet: OrderSheetFeature.State? = nil
         ) {
             self.stock = stock
@@ -90,6 +93,7 @@ public struct StockDetailFeature {
             self.hasMoreCandleHistory = hasMoreCandleHistory
             self.priceRetryCount = priceRetryCount
             self.orderBookRetryCount = orderBookRetryCount
+            self.isWatched = isWatched
             self.orderSheet = orderSheet
         }
     }
@@ -116,6 +120,13 @@ public struct StockDetailFeature {
         case holdingLoaded(StockHolding?)
         case holdingFailed
 
+        // 관심종목
+        case loadWatched
+        case watchedLoaded(Bool)
+        case watchedLoadFailed
+        case starTapped
+        case watchlistToggleFailed(Bool)
+
         // 차트(캔들)
         case intervalSelected(CandleInterval)
         case loadCandles
@@ -136,6 +147,7 @@ public struct StockDetailFeature {
         case headerPrice
         case orderBook
         case holding
+        case watched
         case candles
         case olderCandles
     }
@@ -149,6 +161,7 @@ public struct StockDetailFeature {
                 return .merge(
                     .send(.startPriceStream),
                     state.isHoldingLoaded ? .none : .send(.loadHolding),
+                    .send(.loadWatched),
                     effectOnEnter(tab: state.selectedTab, state: state)
                 )
 
@@ -157,6 +170,7 @@ public struct StockDetailFeature {
                     .cancel(id: CancelID.headerPrice),
                     .cancel(id: CancelID.orderBook),
                     .cancel(id: CancelID.holding),
+                    .cancel(id: CancelID.watched),
                     .cancel(id: CancelID.candles),
                     .cancel(id: CancelID.olderCandles)
                 )
@@ -292,6 +306,48 @@ public struct StockDetailFeature {
             case .holdingFailed:
                 // isHoldingLoaded는 false로 둬, 다음 탭 진입 시 재시도한다.
                 state.holdingErrorMessage = "보유 정보를 불러오지 못했습니다."
+                return .none
+
+            case .loadWatched:
+                let stockCode = state.stock.stockCode
+                let stockClient = stockClient
+                return .run { send in
+                    do {
+                        let watched = try await stockClient.fetchWatched(stockCode)
+                        await send(.watchedLoaded(watched))
+                    } catch {
+                        await send(.watchedLoadFailed)
+                    }
+                }
+                .cancellable(id: CancelID.watched, cancelInFlight: true)
+
+            case let .watchedLoaded(watched):
+                state.isWatched = watched
+                return .none
+
+            case .watchedLoadFailed:
+                return .none
+
+            case .starTapped:
+                guard let current = state.isWatched else { return .none }
+                let target = !current
+                state.isWatched = target
+                let stockCode = state.stock.stockCode
+                let stockClient = stockClient
+                return .run { send in
+                    do {
+                        if target {
+                            try await stockClient.addToWatchlist(stockCode)
+                        } else {
+                            try await stockClient.removeFromWatchlist(stockCode)
+                        }
+                    } catch {
+                        await send(.watchlistToggleFailed(current))
+                    }
+                }
+
+            case let .watchlistToggleFailed(previous):
+                state.isWatched = previous
                 return .none
 
             case .intervalSelected(let interval):

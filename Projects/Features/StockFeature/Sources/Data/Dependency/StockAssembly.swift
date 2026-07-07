@@ -21,6 +21,10 @@ enum StockAssembly {
         let fetchHoldingUsecase = FetchHoldingUsecaseImpl(stockRepository: stockRepository)
         let fetchPortfolioUsecase = FetchPortfolioUsecaseImpl(stockRepository: stockRepository)
         let fetchCandlesUsecase = FetchCandlesUsecaseImpl(stockRepository: stockRepository)
+        let fetchWatchlistUsecase = FetchWatchlistUsecaseImpl(stockRepository: stockRepository)
+        let fetchWatchedUsecase = FetchWatchedUsecaseImpl(stockRepository: stockRepository)
+        let addToWatchlistUsecase = AddToWatchlistUsecaseImpl(stockRepository: stockRepository)
+        let removeFromWatchlistUsecase = RemoveFromWatchlistUsecaseImpl(stockRepository: stockRepository)
 
         return StockClient.live(
             fetchStocksUsecase: fetchStocksUsecase,
@@ -30,7 +34,11 @@ enum StockAssembly {
             observeOrderBookUsecase: observeOrderBookUsecase,
             fetchHoldingUsecase: fetchHoldingUsecase,
             fetchPortfolioUsecase: fetchPortfolioUsecase,
-            fetchCandlesUsecase: fetchCandlesUsecase
+            fetchCandlesUsecase: fetchCandlesUsecase,
+            fetchWatchlistUsecase: fetchWatchlistUsecase,
+            fetchWatchedUsecase: fetchWatchedUsecase,
+            addToWatchlistUsecase: addToWatchlistUsecase,
+            removeFromWatchlistUsecase: removeFromWatchlistUsecase
         )
     }
 }

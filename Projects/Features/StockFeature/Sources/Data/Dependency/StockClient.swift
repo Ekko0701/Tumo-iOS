@@ -36,6 +36,14 @@ public struct StockClient: Sendable {
         _ to: String
     ) async throws -> [StockCandle]
 
+    public var fetchWatchlist: @Sendable (_ page: Int, _ size: Int) async throws -> StockPage
+
+    public var fetchWatched: @Sendable (_ stockCode: String) async throws -> Bool
+
+    public var addToWatchlist: @Sendable (_ stockCode: String) async throws -> Void
+
+    public var removeFromWatchlist: @Sendable (_ stockCode: String) async throws -> Void
+
     public init(
         fetchStocks: @escaping @Sendable (
             _ market: StockMarket,
@@ -62,7 +70,11 @@ public struct StockClient: Sendable {
             _ interval: CandleInterval,
             _ from: String,
             _ to: String
-        ) async throws -> [StockCandle]
+        ) async throws -> [StockCandle],
+        fetchWatchlist: @escaping @Sendable (_ page: Int, _ size: Int) async throws -> StockPage,
+        fetchWatched: @escaping @Sendable (_ stockCode: String) async throws -> Bool,
+        addToWatchlist: @escaping @Sendable (_ stockCode: String) async throws -> Void,
+        removeFromWatchlist: @escaping @Sendable (_ stockCode: String) async throws -> Void
     ) {
         self.fetchStocks = fetchStocks
         self.fetchStockRankings = fetchStockRankings
@@ -72,6 +84,10 @@ public struct StockClient: Sendable {
         self.fetchHolding = fetchHolding
         self.fetchPortfolio = fetchPortfolio
         self.fetchCandles = fetchCandles
+        self.fetchWatchlist = fetchWatchlist
+        self.fetchWatched = fetchWatched
+        self.addToWatchlist = addToWatchlist
+        self.removeFromWatchlist = removeFromWatchlist
     }
 }
 
@@ -84,7 +100,11 @@ extension StockClient {
         observeOrderBookUsecase: any ObserveOrderBookUsecase,
         fetchHoldingUsecase: any FetchHoldingUsecase,
         fetchPortfolioUsecase: any FetchPortfolioUsecase,
-        fetchCandlesUsecase: any FetchCandlesUsecase
+        fetchCandlesUsecase: any FetchCandlesUsecase,
+        fetchWatchlistUsecase: any FetchWatchlistUsecase,
+        fetchWatchedUsecase: any FetchWatchedUsecase,
+        addToWatchlistUsecase: any AddToWatchlistUsecase,
+        removeFromWatchlistUsecase: any RemoveFromWatchlistUsecase
     ) -> StockClient {
         StockClient(
             fetchStocks: { market, page, size in
@@ -120,6 +140,18 @@ extension StockClient {
                     from: from,
                     to: to
                 )
+            },
+            fetchWatchlist: { page, size in
+                try await fetchWatchlistUsecase.execute(page: page, size: size)
+            },
+            fetchWatched: { stockCode in
+                try await fetchWatchedUsecase.execute(stockCode: stockCode)
+            },
+            addToWatchlist: { stockCode in
+                try await addToWatchlistUsecase.execute(stockCode: stockCode)
+            },
+            removeFromWatchlist: { stockCode in
+                try await removeFromWatchlistUsecase.execute(stockCode: stockCode)
             }
         )
     }
@@ -136,7 +168,11 @@ private enum StockClientKey: DependencyKey {
         observeOrderBook: { _ in .never },
         fetchHolding: { _ in fatalError("unimplemented") },
         fetchPortfolio: { fatalError("unimplemented") },
-        fetchCandles: { _, _, _, _ in fatalError("unimplemented") }
+        fetchCandles: { _, _, _, _ in fatalError("unimplemented") },
+        fetchWatchlist: { _, _ in fatalError("unimplemented") },
+        fetchWatched: { _ in fatalError("unimplemented") },
+        addToWatchlist: { _ in },
+        removeFromWatchlist: { _ in }
     )
 }
 

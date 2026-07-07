@@ -60,6 +60,8 @@ struct StockRow: View {
             "거래량 \(formattedVolume(stock.tradeVolume))"
         case .rising, .falling:
             formattedChangeRate(stock.changeRate)
+        case .watchlist:
+            "현재가 \(stock.currentPrice.formatted())"
         }
     }
 
