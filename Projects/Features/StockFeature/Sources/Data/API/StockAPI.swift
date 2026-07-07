@@ -9,6 +9,10 @@ enum StockAPI: TargetType {
     case realtimePriceStream(stockCodes: [String])
     case realtimeOrderBookStream(stockCode: String)
     case candles(stockCode: String, interval: CandleInterval, from: String, to: String)
+    case fetchWatchlist(page: Int, size: Int)
+    case fetchWatched(stockCode: String)
+    case addToWatchlist(stockCode: String)
+    case removeFromWatchlist(stockCode: String)
 
     var baseURL: URL {
         TumoBackend.baseURL
@@ -33,13 +37,30 @@ enum StockAPI: TargetType {
 
         case .candles(let stockCode, _, _, _):
             "/api/v1/stocks/\(stockCode)/candles"
+
+        case .fetchWatchlist:
+            "/api/v1/watchlist"
+
+        case .fetchWatched(let stockCode):
+            "/api/v1/watchlist/\(stockCode)"
+
+        case .addToWatchlist(let stockCode):
+            "/api/v1/watchlist/\(stockCode)"
+
+        case .removeFromWatchlist(let stockCode):
+            "/api/v1/watchlist/\(stockCode)"
         }
     }
 
     var method: HTTPMethod {
         switch self {
-        case .stocks, .rankings, .stock, .realtimePriceStream, .realtimeOrderBookStream, .candles:
+        case .stocks, .rankings, .stock, .realtimePriceStream, .realtimeOrderBookStream, .candles,
+             .fetchWatchlist, .fetchWatched:
             .get
+        case .addToWatchlist:
+            .post
+        case .removeFromWatchlist:
+            .delete
         }
     }
 
@@ -85,6 +106,18 @@ enum StockAPI: TargetType {
                 ],
                 encoding: .url
             )
+
+        case .fetchWatchlist(let page, let size):
+            .requestParameters(
+                [
+                    "page": page,
+                    "size": size
+                ],
+                encoding: .url
+            )
+
+        case .fetchWatched, .addToWatchlist, .removeFromWatchlist:
+            .requestPlain
         }
     }
 }
