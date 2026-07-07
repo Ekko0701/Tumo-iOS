@@ -147,6 +147,7 @@ public struct StockDetailFeature {
         case headerPrice
         case orderBook
         case holding
+        case watched
         case candles
         case olderCandles
     }
@@ -169,6 +170,7 @@ public struct StockDetailFeature {
                     .cancel(id: CancelID.headerPrice),
                     .cancel(id: CancelID.orderBook),
                     .cancel(id: CancelID.holding),
+                    .cancel(id: CancelID.watched),
                     .cancel(id: CancelID.candles),
                     .cancel(id: CancelID.olderCandles)
                 )
@@ -317,6 +319,7 @@ public struct StockDetailFeature {
                         await send(.watchedLoadFailed)
                     }
                 }
+                .cancellable(id: CancelID.watched, cancelInFlight: true)
 
             case let .watchedLoaded(watched):
                 state.isWatched = watched
